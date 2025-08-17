@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package hostagent;
+
+option go_package = " github.com/MadhavKrishanGoswami/Lighthouse/services/host-agent";
+
+// Messages 
+
+message ContainerInfo {
+  string containerID = 1;        // Docker container ID
+  string name = 2;                // Container name
+  string image = 3;               // Image name with tag
+  repeated string ports = 5;      // Exposed ports
+  repeated string envVars = 6;   // Environment variables
+  repeated string volumes = 7;    // Mounted volumes
+  string network = 8;             // Network name
+}
+message HostInfo {
+  string hostID = 1;
+  string hostname = 2;
+  string ip = 3;
+  repeated ContainerInfo containers = 4;
+}
+message HeartbeatRequest {
+  string hostID = 1;
+  int64 timestamp = 2;
+  float cpuUsage = 3;
+  float memoryUsage = 4;
+}
+message UpdateContainerRequest {
+  string deploymentID = 1;       // Internal orchestrator deployment ID
+  string image = 2;               // New image (repo:tag or digest)
+  repeated string overrideEnvVars = 3; // Optional overrides
+  repeated string overridePorts = 4;    // Optional overrides
+}
+message UpdateStatus {
+  string deploymentID = 1;
+  string containerID = 2;
+  enum Stage {
+    UNKNOWN = 0;
+    PULLING = 1;
+    STARTING = 2;
+    HEALTH_CHECK = 3;
+    COMPLETED = 4;
+    ROLLBACK = 5;
+    FAILED = 6;
+  }
+  Stage stage = 3;
+  string logs = 4;               // Optional log snippet
+}
+
+// Service definitions
+
+service HostAgentService {
+  // Register host & initial containers
+
+  rpc RegisterHost(HostInfo) returns (HostInfo);
+
+  // Periodic heartbeat
+  
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatRequest);
+
+  // Update container command from orchestrator
+  
+  rpc UpdateContainer(UpdateContainerRequest) returns (UpdateStatus);
+
+  // Streaming status updates while updating container
+
+  rpc UpdateStatusStream(stream UpdateStatus) returns (stream UpdateStatus);
+}
+
