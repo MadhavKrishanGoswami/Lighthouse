@@ -1,0 +1,1 @@
+// Handles RegisterHost RPC logic
