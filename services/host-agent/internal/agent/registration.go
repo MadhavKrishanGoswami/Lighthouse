@@ -1,1 +1,2 @@
-// Handles RegisterHost RPC logic
+// Handles Register the agent with the orchestrator
+package agent

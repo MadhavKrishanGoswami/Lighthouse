@@ -246,8 +246,6 @@ type HeartbeatRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	HostID        string                 `protobuf:"bytes,1,opt,name=hostID,proto3" json:"hostID,omitempty"`
 	Timestamp     int64                  `protobuf:"varint,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-	CpuUsage      float32                `protobuf:"fixed32,3,opt,name=cpuUsage,proto3" json:"cpuUsage,omitempty"`
-	MemoryUsage   float32                `protobuf:"fixed32,4,opt,name=memoryUsage,proto3" json:"memoryUsage,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -292,20 +290,6 @@ func (x *HeartbeatRequest) GetHostID() string {
 func (x *HeartbeatRequest) GetTimestamp() int64 {
 	if x != nil {
 		return x.Timestamp
-	}
-	return 0
-}
-
-func (x *HeartbeatRequest) GetCpuUsage() float32 {
-	if x != nil {
-		return x.CpuUsage
-	}
-	return 0
-}
-
-func (x *HeartbeatRequest) GetMemoryUsage() float32 {
-	if x != nil {
-		return x.MemoryUsage
 	}
 	return 0
 }
@@ -465,12 +449,10 @@ const file_host_agent_proto_rawDesc = "" +
 	"\x02ip\x18\x03 \x01(\tR\x02ip\x128\n" +
 	"\n" +
 	"containers\x18\x04 \x03(\v2\x18.hostagent.ContainerInfoR\n" +
-	"containers\"\x86\x01\n" +
+	"containers\"H\n" +
 	"\x10HeartbeatRequest\x12\x16\n" +
 	"\x06hostID\x18\x01 \x01(\tR\x06hostID\x12\x1c\n" +
-	"\ttimestamp\x18\x02 \x01(\x03R\ttimestamp\x12\x1a\n" +
-	"\bcpuUsage\x18\x03 \x01(\x02R\bcpuUsage\x12 \n" +
-	"\vmemoryUsage\x18\x04 \x01(\x02R\vmemoryUsage\"\xa2\x01\n" +
+	"\ttimestamp\x18\x02 \x01(\x03R\ttimestamp\"\xa2\x01\n" +
 	"\x16UpdateContainerRequest\x12\"\n" +
 	"\fdeploymentID\x18\x01 \x01(\tR\fdeploymentID\x12\x14\n" +
 	"\x05image\x18\x02 \x01(\tR\x05image\x12(\n" +
@@ -494,7 +476,7 @@ const file_host_agent_proto_rawDesc = "" +
 	"\fRegisterHost\x12\x13.hostagent.HostInfo\x1a\x13.hostagent.HostInfo\x12E\n" +
 	"\tHeartbeat\x12\x1b.hostagent.HeartbeatRequest\x1a\x1b.hostagent.HeartbeatRequest\x12M\n" +
 	"\x0fUpdateContainer\x12!.hostagent.UpdateContainerRequest\x1a\x17.hostagent.UpdateStatus\x12J\n" +
-	"\x12UpdateStatusStream\x12\x17.hostagent.UpdateStatus\x1a\x17.hostagent.UpdateStatus(\x010\x01BAZ? github.com/MadhavKrishanGoswami/Lighthouse/services/host-agentb\x06proto3"
+	"\x12UpdateStatusStream\x12\x17.hostagent.UpdateStatus\x1a\x17.hostagent.UpdateStatus(\x010\x01B@Z>github.com/MadhavKrishanGoswami/Lighthouse/services/host-agentb\x06proto3"
 
 var (
 	file_host_agent_proto_rawDescOnce sync.Once
