@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package hostagent;
 
-option go_package = " github.com/MadhavKrishanGoswami/Lighthouse/services/host-agent";
+option go_package = "github.com/MadhavKrishanGoswami/Lighthouse/services/host-agent";
 
 // Messages 
 
@@ -24,8 +24,6 @@ message HostInfo {
 message HeartbeatRequest {
   string hostID = 1;
   int64 timestamp = 2;
-  float cpuUsage = 3;
-  float memoryUsage = 4;
 }
 message UpdateContainerRequest {
   string deploymentID = 1;       // Internal orchestrator deployment ID

@@ -1,0 +1,60 @@
+
+# ---- Go ----
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go build cache & modules
+/bin/
+/build/
+/dist/
+/target/
+/vendor/
+/coverage.out
+/go.sum
+
+# Go workspace stuff
+*.log
+*.prof
+*.pprof
+*.trace
+
+# ---- gRPC / Protobuf ----
+*.pb.go
+*.pb.gw.go
+*.swagger.json
+
+# If you commit generated code, remove the above ignores.
+# Otherwise regenerate them during build.
+
+# ---- IDEs & Editors ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*.iml
+
+# ---- OS Files ----
+.DS_Store
+Thumbs.db
+
+# ---- Docker ----
+/.env
+docker-compose.override.yml
+*.env.local
+*.env.*
+
+# ---- Tests ----
+/tmp/
+/testdata/
+/coverage/
+
+# ---- Misc ----
+*.cache
+*.bak
+*.backup
