@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	lhtypes "github.com/MadhavKrishanGoswami/Lighthouse/services/host-agent/internal/types"
+	host_agent "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/host-agents"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"
 )
@@ -24,7 +24,7 @@ func RegisterAgent(cli *client.Client, ctx context.Context) {
 		return
 	}
 
-	var containers []lhtypes.ContainerInfo
+	var containers []*host_agent.ContainerInfo
 
 	// Iterate through each container and inspect it for full details
 	for _, c := range containersList {
@@ -57,7 +57,7 @@ func RegisterAgent(cli *client.Client, ctx context.Context) {
 		}
 
 		// Build our container info
-		cInfo := lhtypes.ContainerInfo{
+		cInfo := host_agent.ContainerInfo{
 			ContainerID: c.ID,
 			Name:        strings.TrimPrefix(inspect.Name, "/"),
 			Image:       inspect.Config.Image,
@@ -67,7 +67,7 @@ func RegisterAgent(cli *client.Client, ctx context.Context) {
 			Network:     string(inspect.HostConfig.NetworkMode),
 		}
 
-		containers = append(containers, cInfo)
+		containers = append(containers, &cInfo)
 	}
 
 	// Get host information
@@ -86,10 +86,10 @@ func RegisterAgent(cli *client.Client, ctx context.Context) {
 		log.Printf("Failed to get host IP: %v", err)
 		return
 	}
-	hostInfo := lhtypes.HostInfo{
+	hostInfo := &host_agent.HostInfo{
 		HostID:     hostID,
 		Hostname:   hostname,
-		IP:         ip,
+		Ip:         ip,
 		Containers: containers,
 	}
 	// Prrtty print the host info for now

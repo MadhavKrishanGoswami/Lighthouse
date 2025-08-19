@@ -1,40 +1,50 @@
+
 syntax = "proto3";
 
-package hostagent;
+package orchestrator;
 
-option go_package = "github.com/MadhavKrishanGoswami/Lighthouse/services/host-agent";
+option go_package = "github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator";
 
-// Messages 
+// ====================
+// Messages
+// ====================
 
 message ContainerInfo {
-  string containerID = 1;        // Docker container ID
-  string name = 2;                // Container name
-  string image = 3;               // Image name with tag
-  repeated string ports = 5;      // Exposed ports
-  repeated string envVars = 6;   // Environment variables
-  repeated string volumes = 7;    // Mounted volumes
-  string network = 8;             // Network name
+  string containerID = 1; // Unique identifier for the container
+  string name = 2; // Name of the container
+  string image = 3; // Docker image used for the container
+  repeated string ports = 4 ; // List of ports exposed by the container
+  repeated string envVars = 5; // Environment variables set for the container
+  repeated string volumes = 6; // List of volumes mounted in the container
+  string network = 7; // Network mode of the container
 }
+
 message HostInfo {
-  string hostID = 1;
-  string hostname = 2;
-  string ip = 3;
-  repeated ContainerInfo containers = 4;
+  string hostID = 1; // MAC address or unique identifier for the host
+  string hostname = 2; 
+  string ip = 3; // IP address of the host
+  string os = 4; // Operating system of the host
+  repeated ContainerInfo containers = 5;
 }
-message HeartbeatRequest {
-  string hostID = 1;
-  int64 timestamp = 2;
+
+message Heartbeat {
+  string hostID = 1; // MAC address or unique identifier for the host
+  int64 timestamp = 2; // Timestamp of the heartbeat
 }
-message UpdateContainerRequest {
-  string deploymentID = 1;       // Internal orchestrator deployment ID
-  string image = 2;               // New image (repo:tag or digest)
-  repeated string overrideEnvVars = 3; // Optional overrides
-  repeated string overridePorts = 4;    // Optional overrides
+
+message UpdateContainerCommand {
+  string deploymentID = 1; // Unique identifier for the deployment
+  string image = 2; // Docker image to update the container to
+  repeated string overrideEnvVars = 3; // Environment variables to override in the container
+  repeated string overridePorts = 4; // Ports to override in the container 
+  repeated string overrideVolumes = 5; // Volumes to override in the container
+  string overidenetwork = 6; // Network mode to override in the container
 }
+
 message UpdateStatus {
-  string deploymentID = 1;
-  string containerID = 2;
-  enum Stage {
+  string deploymentID = 1; // Unique identifier for the deployment
+  string containerID = 2; // Unique identifier for the container being updated
+  enum Stage { 
     UNKNOWN = 0;
     PULLING = 1;
     STARTING = 2;
@@ -42,28 +52,27 @@ message UpdateStatus {
     COMPLETED = 4;
     ROLLBACK = 5;
     FAILED = 6;
-  }
-  Stage stage = 3;
-  string logs = 4;               // Optional log snippet
+  } // Stage of the update process
+  Stage stage = 3; // Current stage of the update process
+  string logs = 4; // Logs from the update process
 }
 
-// Service definitions
+// ====================
+// Service
+// ====================
+
 
 service HostAgentService {
-  // Register host & initial containers
-
+  // Register host with orchestrator
   rpc RegisterHost(HostInfo) returns (HostInfo);
 
   // Periodic heartbeat
-  
   rpc Heartbeat(HeartbeatRequest) returns (HeartbeatRequest);
 
-  // Update container command from orchestrator
-  
+  // Orchestrator tells agent to update a container
   rpc UpdateContainer(UpdateContainerRequest) returns (UpdateStatus);
 
-  // Streaming status updates while updating container
-
+  // Agent streams update status while updating
   rpc UpdateStatusStream(stream UpdateStatus) returns (stream UpdateStatus);
 }
 
