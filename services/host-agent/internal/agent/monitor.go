@@ -1,4 +1,4 @@
-// Handles Monitor Container logic
+// Package agent provides functionality to monitor Docker containers.
 package agent
 
 import (
@@ -9,13 +9,7 @@ import (
 )
 
 // MonitorContainer monitors the status of a Docker containers and returns its status.
-func MonitorContainer(ctx context.Context, containerID string) (string, error) {
-	// Create a Docker client
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		return "", fmt.Errorf("failed to create Docker client: %w", err)
-	}
-
+func MonitorContainer(cli *client.Client, ctx context.Context, containerID string) (string, error) {
 	// Get container status
 	containerJSON, err := cli.ContainerInspect(ctx, containerID)
 	if err != nil {
