@@ -16,7 +16,7 @@ build
 /target/
 /vendor/
 /coverage.out
-/go.sum
+go.sum
 
 # Go workspace stuff
 *.log
