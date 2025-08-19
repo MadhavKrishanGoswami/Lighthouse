@@ -10,41 +10,41 @@ option go_package = "github.com/MadhavKrishanGoswami/Lighthouse/services/orchest
 // ====================
 
 message ContainerInfo {
-  string containerID = 1; // Unique identifier for the container
-  string name = 2; // Name of the container
-  string image = 3; // Docker image used for the container
-  repeated string ports = 4 ; // List of ports exposed by the container
-  repeated string envVars = 5; // Environment variables set for the container
-  repeated string volumes = 6; // List of volumes mounted in the container
-  string network = 7; // Network mode of the container
+  string containerID = 1;     // Unique identifier for the container
+  string name = 2;            // Name of the container
+  string image = 3;           // Docker image used for the container
+  repeated string ports = 4;  // List of ports exposed by the container
+  repeated string envVars = 5; 
+  repeated string volumes = 6;
+  string network = 7;
 }
 
 message HostInfo {
-  string hostID = 1; // MAC address or unique identifier for the host
+  string hostID = 1;  
   string hostname = 2; 
-  string ip = 3; // IP address of the host
-  string os = 4; // Operating system of the host
+  string ip = 3;      
+  string os = 4;      
   repeated ContainerInfo containers = 5;
 }
 
 message Heartbeat {
-  string hostID = 1; // MAC address or unique identifier for the host
-  int64 timestamp = 2; // Timestamp of the heartbeat
+  string hostID = 1;
+  int64 timestamp = 2;
 }
 
 message UpdateContainerCommand {
-  string deploymentID = 1; // Unique identifier for the deployment
-  string image = 2; // Docker image to update the container to
-  repeated string overrideEnvVars = 3; // Environment variables to override in the container
-  repeated string overridePorts = 4; // Ports to override in the container 
-  repeated string overrideVolumes = 5; // Volumes to override in the container
-  string overidenetwork = 6; // Network mode to override in the container
+  string deploymentID = 1;
+  string image = 2;
+  repeated string overrideEnvVars = 3;
+  repeated string overridePorts = 4;
+  repeated string overrideVolumes = 5;
+  string overrideNetwork = 6;
 }
 
 message UpdateStatus {
-  string deploymentID = 1; // Unique identifier for the deployment
-  string containerID = 2; // Unique identifier for the container being updated
-  enum Stage { 
+  string deploymentID = 1;
+  string containerID = 2;
+  enum Stage {
     UNKNOWN = 0;
     PULLING = 1;
     STARTING = 2;
@@ -52,27 +52,57 @@ message UpdateStatus {
     COMPLETED = 4;
     ROLLBACK = 5;
     FAILED = 6;
-  } // Stage of the update process
-  Stage stage = 3; // Current stage of the update process
-  string logs = 4; // Logs from the update process
+  }
+  Stage stage = 3;
+  string logs = 4;
+}
+
+// ====================
+// Request / Response Wrappers
+// ====================
+
+message RegisterHostRequest {
+  HostInfo host = 1;
+}
+
+message RegisterHostResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message HeartbeatRequest {
+  Heartbeat heartbeat = 1;
+}
+
+message HeartbeatResponse {
+  bool success = 1;
+}
+
+message UpdateContainerRequest {
+  string hostID = 1;
+  UpdateContainerCommand command = 2;
+}
+
+message UpdateContainerResponse {
+  bool accepted = 1;
+  string message = 2;
 }
 
 // ====================
 // Service
 // ====================
 
-
 service HostAgentService {
-  // Register host with orchestrator
-  rpc RegisterHost(HostInfo) returns (HostInfo);
+  // Agent -> Orchestrator: Register host
+  rpc RegisterHost(RegisterHostRequest) returns (RegisterHostResponse);
 
-  // Periodic heartbeat
-  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatRequest);
+  // Agent -> Orchestrator: Periodic heartbeat
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
 
-  // Orchestrator tells agent to update a container
-  rpc UpdateContainer(UpdateContainerRequest) returns (UpdateStatus);
+  // Orchestrator -> Agent: Tell agent to update a container
+  rpc UpdateContainer(UpdateContainerRequest) returns (UpdateContainerResponse);
 
-  // Agent streams update status while updating
+  // Agent <-> Orchestrator: Stream update statuses
   rpc UpdateStatusStream(stream UpdateStatus) returns (stream UpdateStatus);
 }
 
