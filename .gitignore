@@ -11,7 +11,7 @@
 
 # Go build cache & modules
 /bin/
-/build/
+build
 /dist/
 /target/
 /vendor/
