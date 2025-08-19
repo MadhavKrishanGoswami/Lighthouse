@@ -11,17 +11,17 @@ import (
 
 	host_agent "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/host-agents"
 	"github.com/moby/moby/api/types/container"
-	"github.com/moby/moby/client"
+	dockerclient "github.com/moby/moby/client"
 )
 
-func RegisterAgent(cli *client.Client, ctx context.Context) {
+func RegisterAgent(cli *dockerclient.Client, ctx context.Context, gRPCClient host_agent.HostAgentServiceClient) error {
 	// List all containers on the host
 	containersList, err := cli.ContainerList(ctx, container.ListOptions{
 		All: true, // include stopped containers if you want
 	})
 	if err != nil {
 		log.Printf("Failed to list containers: %v", err)
-		return
+		return err
 	}
 
 	var containers []*host_agent.ContainerInfo
@@ -74,17 +74,17 @@ func RegisterAgent(cli *client.Client, ctx context.Context) {
 	hostID, err := GetMACAddress()
 	if err != nil {
 		log.Printf("Failed to get MAC address: %v", err)
-		return
+		return err
 	}
 	hostname, err := os.Hostname()
 	if err != nil {
 		log.Printf("Failed to get hostname: %v", err)
-		return
+		return err
 	}
 	ip, err := GetHostIP()
 	if err != nil {
 		log.Printf("Failed to get host IP: %v", err)
-		return
+		return err
 	}
 	hostInfo := &host_agent.HostInfo{
 		HostID:     hostID,
@@ -94,6 +94,20 @@ func RegisterAgent(cli *client.Client, ctx context.Context) {
 	}
 	// Prrtty print the host info for now
 	log.Printf("Host Info: %+v", hostInfo)
+	// Register the host with the orchestrator
+	res, err := gRPCClient.RegisterHost(ctx, &host_agent.RegisterHostRequest{
+		Host: hostInfo,
+	})
+	if err != nil {
+		log.Printf("Failed to register host: %v", err)
+		return err
+	}
+	if res.Success {
+		log.Printf("Host registered successfully: %s", res.Message)
+	} else {
+		log.Printf("Failed to register host: %s", res.Message)
+	}
+	return nil
 }
 
 func GetMACAddress() (string, error) {
