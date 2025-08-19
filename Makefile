@@ -11,3 +11,7 @@ protos:
 host-agent:
 	@echo "Building host-agent binary"
 	go build -o ./services/host-agent/build ./services/host-agent/cmd/agent/main.go
+
+orchestrator:
+	@echo "Building orchestrator binary"
+	go build -o ./services/orchestrator/build ./services/orchestrator/cmd/orchestrator/main.go
