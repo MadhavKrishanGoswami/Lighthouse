@@ -1,0 +1,17 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    schema: "./db/migration"
+    # Read queries from the .sql files in this directory
+    queries: "db/queries"
+    gen:
+      go:
+        # Output the generated Go code here
+        package: "db"
+        out: "internal/db/sqlc"
+        # Optional but recommended settings
+        sql_package: "pgx/v5"
+        emit_json_tags: true
+        emit_prepared_queries: false
+        emit_interface: true
+        emit_exact_table_names: false

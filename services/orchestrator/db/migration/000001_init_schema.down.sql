@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS hosts;
+DROP TABLE IF EXISTS containers;
+DROP TABLE IF EXISTS deployments;
+DROP TABLE IF EXISTS update_status;
