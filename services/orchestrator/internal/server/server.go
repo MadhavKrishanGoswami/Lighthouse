@@ -7,6 +7,7 @@ import (
 	"net"
 
 	orchestrator "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/host-agents"
+	"github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/config"
 	"google.golang.org/grpc"
 )
 
@@ -29,10 +30,10 @@ func (s *server) RegisterHost(ctx context.Context, req *orchestrator.RegisterHos
 	}, nil
 }
 
-func StartServer() {
+func StartServer(config *config.Config) {
 	// Start the gRPC server until it is stopped
 	log.Println("Starting gRPC server...")
-	lis, err := net.Listen("tcp", "0.0.0.0:50051")
+	lis, err := net.Listen("tcp", config.Addr) // Use the address from the config
 	// Listen on port 50051 for incoming gRPC requests
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)

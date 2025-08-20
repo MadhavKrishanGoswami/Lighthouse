@@ -1,2 +1,3 @@
-// Handler for registering a host to the DB
+// Package handler
+// store the host to Postgres database
 package handler

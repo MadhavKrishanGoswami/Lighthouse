@@ -8,10 +8,17 @@ protos:
        proto/host-agent.proto
 
 
-host-agent:
+build-host-agent:
 	@echo "Building host-agent binary"
-	go build -o ./services/host-agent/build ./services/host-agent/cmd/agent/main.go
+	go build -o ./services/host-agent/build ./services/host-agent/cmd/agent/main.go 
 
-orchestrator:
+run-host-agent:
+	@echo "Running host-agent"
+	./services/host-agent/build
+
+build-orchestrator:
 	@echo "Building orchestrator binary"
 	go build -o ./services/orchestrator/build ./services/orchestrator/cmd/orchestrator/main.go
+run-orchestrator:
+	@echo "Running orchestrator"
+	./services/orchestrator/build -config ./services/orchestrator/internal/config/local.yaml

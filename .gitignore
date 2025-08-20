@@ -49,6 +49,7 @@ docker-compose.override.yml
 *.env.local
 *.env.*
 
+
 # ---- Tests ----
 /tmp/
 /testdata/
@@ -58,3 +59,7 @@ docker-compose.override.yml
 *.cache
 *.bak
 *.backup
+
+# ---- Local Yaml congig ----
+local.yaml
+

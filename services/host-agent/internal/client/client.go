@@ -27,7 +27,7 @@ func StartClient() (orchestrator.HostAgentServiceClient, *grpc.ClientConn, error
 		log.Fatalf("failed to create client: %v", err)
 		return nil, nil, err
 	}
-	log.Println("gRPC client connected to server at localhost:50051")
+	log.Println("gRPC client connected to orchestrator at localhost:50051")
 
 	// Return the client to be used for further operations
 	return client, conn, nil
