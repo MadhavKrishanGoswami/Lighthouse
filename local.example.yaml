@@ -1,5 +1,5 @@
 # Example configuration file for local development.
 env: # "dev" or "prod"
 DataBaseURL: # Address for the database (POSTgres), e.g., "http://postgres:5432"
-gRPCServer:
+GRPCServer:
   Address: # Address for gRPC server (e.g., "0.0.0:50051")

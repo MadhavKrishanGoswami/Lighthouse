@@ -40,5 +40,5 @@ migrate-down:
 	migrate -path ./services/orchestrator/db/migration/ -database "postgres://dev:dev@localhost:5432/lighthouse?sslmode=disable" -verbose down
 sqlc/orchestrator:
 	@echo "=> Generating sqlc code for orchestrator..."
-	@sqlc generate -f services/orchestrator/sqlc.yaml
+	sqlc generate -f services/orchestrator/sqlc.yaml
 

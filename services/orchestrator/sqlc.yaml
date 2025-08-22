@@ -1,9 +1,9 @@
 version: "2"
 sql:
   - engine: "postgresql"
-    schema: "./db/migration"
+    schema: "./db/migration/"
     # Read queries from the .sql files in this directory
-    queries: "db/queries"
+    queries: "./db/queries/"
     gen:
       go:
         # Output the generated Go code here

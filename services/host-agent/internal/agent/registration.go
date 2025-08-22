@@ -87,9 +87,9 @@ func RegisterAgent(cli *dockerclient.Client, ctx context.Context, gRPCClient hos
 		return err
 	}
 	hostInfo := &host_agent.HostInfo{
-		HostID:     hostID,
+		MacAddress: hostID,
 		Hostname:   hostname,
-		Ip:         ip,
+		IpAddress:  ip,
 		Containers: containers,
 	}
 	// Prrtty print the host info for now

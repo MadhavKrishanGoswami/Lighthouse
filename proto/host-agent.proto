@@ -20,10 +20,9 @@ message ContainerInfo {
 }
 
 message HostInfo {
-  string hostID = 1;  
+  string mac_address = 1;  
   string hostname = 2; 
-  string ip = 3;      
-  string os = 4;      
+  string ip_address = 3;      
   repeated ContainerInfo containers = 5;
 }
 
