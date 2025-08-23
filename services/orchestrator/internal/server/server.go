@@ -65,9 +65,53 @@ func (s *server) RegisterHost(ctx context.Context, req *orchestrator.RegisterHos
 	}, nil
 }
 
+func (s *server) Heartbeat(ctx context.Context, req *orchestrator.HeartbeatRequest) (*orchestrator.HeartbeatResponse, error) {
+	// Implement the logic to handle heartbeat messages here
+	log.Printf("Received heartbeat from host: %s", req.MacAddress)
+	// Log each container info
+	host, err := s.db.GertHostByMacAddress(ctx, req.MacAddress)
+	if err != nil {
+		log.Printf("Failed to get host by IP: %v", err)
+		return &orchestrator.HeartbeatResponse{
+			Success: false,
+			Message: "Failed to get host by IP with error: " + err.Error(),
+		}, nil
+	}
+	// inserat last heartbeat timestamp
+	_, err = s.db.UpdateHostLastHeartbeat(ctx, host.ID)
+	if err != nil {
+		log.Printf("Failed to update host last heartbeat: %v", err)
+		return &orchestrator.HeartbeatResponse{
+			Success: false,
+			Message: "Failed to update host last heartbeat with error: " + err.Error(),
+		}, nil
+	}
+	// Upsert containers
+	for _, container := range req.Containers {
+		containerParams := db.InsertContainerParams{
+			ContainerUid: container.ContainerID,
+			HostID:       host.ID,
+			Name:         container.Name,
+			Image:        container.Image,
+			Ports:        container.Ports,
+			EnvVars:      container.EnvVars,
+			Volumes:      container.Volumes,
+			Network:      pgtype.Text{String: container.Network, Valid: true},
+		}
+		_, err := s.db.InsertContainer(ctx, containerParams)
+		if err != nil {
+			log.Printf("Failed to register container: %v", err)
+		}
+	}
+	return &orchestrator.HeartbeatResponse{
+		Success: true,
+		Message: "Heartbeat received successfully",
+	}, nil
+}
+
 func StartServer(config *config.Config, queries *db.Queries) {
 	// Start the gRPC server until it is stopped
-	log.Println("Starting gRPC server on congig agdress:", config.GRPCServer.Addr)
+	log.Println("Starting gRPC server on congig agdress:", config.Addr)
 	lis, err := net.Listen("tcp", config.Addr) // Use the address from the config
 	// Listen on port 50051 for incoming gRPC requests
 	if err != nil {

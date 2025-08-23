@@ -6,13 +6,19 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
+	// Retrieves a host by its mac_address.
+	GertHostByMacAddress(ctx context.Context, macAddress string) (Host, error)
 	// Inserts or updates container based on container_uid
 	InsertContainer(ctx context.Context, arg InsertContainerParams) (Container, error)
 	// Inserts a new host or updates an existing one based on the MAC address.
 	InsertHost(ctx context.Context, arg InsertHostParams) (Host, error)
+	// Updates the last heartbeat timestamp for a host identified by id.
+	UpdateHostLastHeartbeat(ctx context.Context, id pgtype.UUID) (Host, error)
 }
 
 var _ Querier = (*Queries)(nil)

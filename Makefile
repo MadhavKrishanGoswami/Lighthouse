@@ -9,19 +9,15 @@ protos:
        proto/host-agent.proto
 
 
-build-host-agent:
-	@echo "Building host-agent binary"
-	go build -o ./services/host-agent/build ./services/host-agent/cmd/agent/main.go 
 
 run-host-agent:
 	@echo "Running host-agent"
+	go build -o ./services/host-agent/build ./services/host-agent/cmd/agent/main.go 
 	./services/host-agent/build
 
-build-orchestrator:
-	@echo "Building orchestrator binary"
-	go build -o ./services/orchestrator/build ./services/orchestrator/cmd/orchestrator/main.go
 run-orchestrator:
 	@echo "Running orchestrator"
+	go build -o ./services/orchestrator/build ./services/orchestrator/cmd/orchestrator/main.go
 	./services/orchestrator/build -config local.yaml
 postgres:
 	@echo "Running postgres"
@@ -41,4 +37,10 @@ migrate-down:
 sqlc/orchestrator:
 	@echo "=> Generating sqlc code for orchestrator..."
 	sqlc generate -f services/orchestrator/sqlc.yaml
+
+make-db:
+	@echo "Setting up the database"
+	postgres
+	createdb
+	migrate-up
 

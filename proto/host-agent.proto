@@ -14,22 +14,19 @@ message ContainerInfo {
   string name = 2;            // Name of the container
   string image = 3;           // Docker image used for the container
   repeated string ports = 4;  // List of ports exposed by the container
-  repeated string envVars = 5; 
+  repeated string envVars = 5;
   repeated string volumes = 6;
   string network = 7;
 }
 
 message HostInfo {
-  string mac_address = 1;  
-  string hostname = 2; 
-  string ip_address = 3;      
+  string mac_address = 1;
+  string hostname = 2;
+  string ip_address = 3;
   repeated ContainerInfo containers = 5;
 }
 
-message Heartbeat {
-  string hostID = 1;
-  int64 timestamp = 2;
-}
+
 
 message UpdateContainerCommand {
   string deploymentID = 1;
@@ -68,15 +65,14 @@ message RegisterHostResponse {
   bool success = 1;
   string message = 2;
 }
-
 message HeartbeatRequest {
-  Heartbeat heartbeat = 1;
+  string mac_address = 1;
+  repeated ContainerInfo containers = 3;
 }
-
 message HeartbeatResponse {
   bool success = 1;
+  string message = 2;
 }
-
 message UpdateContainerRequest {
   string hostID = 1;
   UpdateContainerCommand command = 2;
@@ -95,7 +91,7 @@ service HostAgentService {
   // Agent -> Orchestrator: Register host
   rpc RegisterHost(RegisterHostRequest) returns (RegisterHostResponse);
 
-  // Agent -> Orchestrator: Periodic heartbeat
+  // Agent -> Orchestrator: Periodic heartbeat (unary)
   rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
 
   // Orchestrator -> Agent: Tell agent to update a container

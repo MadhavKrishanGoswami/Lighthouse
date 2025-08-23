@@ -7,7 +7,28 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const gertHostByMacAddress = `-- name: GertHostByMacAddress :one
+SELECT id, mac_address, hostname, ip_address, last_heartbeat, created_at FROM hosts WHERE mac_address = $1
+`
+
+// Retrieves a host by its mac_address.
+func (q *Queries) GertHostByMacAddress(ctx context.Context, macAddress string) (Host, error) {
+	row := q.db.QueryRow(ctx, gertHostByMacAddress, macAddress)
+	var i Host
+	err := row.Scan(
+		&i.ID,
+		&i.MacAddress,
+		&i.Hostname,
+		&i.IpAddress,
+		&i.LastHeartbeat,
+		&i.CreatedAt,
+	)
+	return i, err
+}
 
 const insertHost = `-- name: InsertHost :one
 INSERT INTO hosts (
@@ -17,7 +38,7 @@ INSERT INTO hosts (
 ) VALUES (
   $1, $2, $3
 )
-ON CONFLICT (mac_address)
+ON CONFLICT (mac_address,ip_address)
 DO UPDATE SET
   hostname = EXCLUDED.hostname,
   ip_address = EXCLUDED.ip_address
@@ -33,6 +54,25 @@ type InsertHostParams struct {
 // Inserts a new host or updates an existing one based on the MAC address.
 func (q *Queries) InsertHost(ctx context.Context, arg InsertHostParams) (Host, error) {
 	row := q.db.QueryRow(ctx, insertHost, arg.MacAddress, arg.Hostname, arg.IpAddress)
+	var i Host
+	err := row.Scan(
+		&i.ID,
+		&i.MacAddress,
+		&i.Hostname,
+		&i.IpAddress,
+		&i.LastHeartbeat,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const updateHostLastHeartbeat = `-- name: UpdateHostLastHeartbeat :one
+UPDATE hosts SET last_heartbeat = NOW() WHERE id = $1 RETURNING id, mac_address, hostname, ip_address, last_heartbeat, created_at
+`
+
+// Updates the last heartbeat timestamp for a host identified by id.
+func (q *Queries) UpdateHostLastHeartbeat(ctx context.Context, id pgtype.UUID) (Host, error) {
+	row := q.db.QueryRow(ctx, updateHostLastHeartbeat, id)
 	var i Host
 	err := row.Scan(
 		&i.ID,
