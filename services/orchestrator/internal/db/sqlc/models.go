@@ -114,6 +114,7 @@ type Container struct {
 	EnvVars   []string           `json:"env_vars"`
 	Volumes   []string           `json:"volumes"`
 	Network   pgtype.Text        `json:"network"`
+	Watch     pgtype.Bool        `json:"watch"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 

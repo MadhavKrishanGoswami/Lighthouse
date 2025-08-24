@@ -25,7 +25,6 @@ func Heartbeat(cli *dockerclient.Client, ctx context.Context, gRPCClient host_ag
 	var containers []*host_agent.ContainerInfo
 
 	// Iterate through each container and inspect it for full details
-	// Iterate through each container and inspect it for full details
 	for _, c := range containersList {
 		inspect, err := cli.ContainerInspect(ctx, c.ID)
 		if err != nil {

@@ -7,71 +7,104 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
+	// Internal package imports
 	"github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/config"
 	db "github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/db/sqlc"
-
-	// Import your service implementations
 	agentserver "github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/grpc/agent"
-	registryserver "github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/grpc/registry-monitor"
+	registryclient "github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/grpc/registry-monitor"
+	"github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/monitor"
 
-	// Import your generated proto definitions
+	// Proto definitions
 	agentpb "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/host-agents"
-	registrypb "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/registry-monitor"
 
+	// External dependencies
 	"github.com/jackc/pgx/v5"
 	"google.golang.org/grpc"
 )
 
 func main() {
+	// --- 1. Configuration Loading ---
+	// Load configuration from environment variables or a config file.
+	// The application will exit if the configuration is invalid.
 	cfg := config.MustLoad()
+	log.Println("Configuration loaded successfully.")
 
-	// Initialize database connection
+	// --- 2. Database Connection ---
+	// Establish a connection to the PostgreSQL database.
+	// The connection is closed gracefully when the main function exits.
 	ctx := context.Background()
 	dbConn, err := pgx.Connect(ctx, cfg.DataBaseURL)
 	if err != nil {
-		log.Fatalf("failed to connect to database: %v", err)
+		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer dbConn.Close(ctx)
 	queries := db.New(dbConn)
+	log.Println("Database connection established.")
 
-	// --- Server Startup Logic ---
+	// --- 3. Registry Monitor Client Connection ---
+	registryMonitorClient, clientConn, err := registryclient.StartClient()
+	if err != nil {
+		log.Fatalf("Failed to start registry monitor client: %v", err)
+	}
+	defer func() {
+		if clientConn != nil {
+			log.Println("Closing gRPC client connection to Registry Monitor...")
+			if err := clientConn.Close(); err != nil {
+				log.Printf("Error closing gRPC client connection: %v", err)
+			}
+		}
+	}()
+	log.Println("gRPC client for Registry Monitor started.")
+
+	// --- 4. gRPC Server Setup ---
+	// Set up the main gRPC server that will host our services.
 	lis, err := net.Listen("tcp", cfg.Addr)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		log.Fatalf("Failed to listen on address %s: %v", cfg.Addr, err)
 	}
-
-	// Create a single gRPC server instance
 	grpcServer := grpc.NewServer()
 
-	// Create instances of your service implementations
+	// --- 5. Service Registration ---
 	agentServer := agentserver.NewServer(queries)
-	registryServer := registryserver.NewServer(queries)
-
-	// Register BOTH services with the single gRPC server
 	agentpb.RegisterHostAgentServiceServer(grpcServer, agentServer)
-	registrypb.RegisterRegistryMonitorServiceServer(grpcServer, registryServer)
+	log.Println("HostAgentService registered.")
 
-	// --- Graceful Shutdown Logic ---
-
-	// Start the server in a separate goroutine
+	// --- 6. Server Start & Graceful Shutdown ---
+	// Start the server in a background goroutine so it doesn't block.
 	go func() {
-		log.Printf("gRPC server listening on %s", lis.Addr())
+		log.Printf("gRPC server starting on %s", lis.Addr())
 		if err := grpcServer.Serve(lis); err != nil {
-			log.Fatalf("failed to serve: %v", err)
+			log.Fatalf("Failed to serve gRPC server: %v", err)
 		}
 	}()
 
-	// Create a channel to listen for OS signals
+	// -- 7. send Watchlist to registry Monitor every 30 seconds
+	// Start Heart Brate to send periodic updates to the orchestrator
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				err := monitor.UpdateWatchlistinRegistryMonitor(ctx, registryMonitorClient, queries)
+				if err != nil {
+					log.Printf("Error updating watchlist in registry monitor: %v", err)
+				}
+			case <-ctx.Done():
+				log.Println("Stopping watchlist update loop")
+				return
+			}
+		}
+	}()
+	// Wait for a shutdown signal (e.g., Ctrl+C).
 	quit := make(chan os.Signal, 1)
-	// Listen for SIGINT (Ctrl+C) and SIGTERM (sent by Docker, Kubernetes, etc.)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-
-	// Block until a signal is received
 	<-quit
-	log.Println("Shutting down gRPC server...")
+	log.Println("Shutdown signal received, initiating graceful shutdown...")
 
-	// Gracefully stop the server. This will wait for existing connections to finish.
+	// Gracefully stop the server. This allows ongoing requests to complete.
 	grpcServer.GracefulStop()
 	log.Println("gRPC server stopped gracefully.")
 }

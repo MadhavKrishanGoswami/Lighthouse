@@ -13,6 +13,8 @@ import (
 type Querier interface {
 	// Retrieves a host by its mac_address.
 	GertHostByMacAddress(ctx context.Context, macAddress string) (Host, error)
+	// Retrieves all containers where watched is true
+	GetallContainersWhereWatched(ctx context.Context) ([]Container, error)
 	// Inserts or updates container based on container_uid
 	InsertContainer(ctx context.Context, arg InsertContainerParams) (Container, error)
 	// Inserts a new host or updates an existing one based on the MAC address.

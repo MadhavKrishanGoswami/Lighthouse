@@ -38,6 +38,7 @@ CREATE TABLE containers (
   env_vars text[],
   volumes text[],
   network varchar,
+  watch boolean DEFAULT TRUE,
   created_at timestamptz DEFAULT now()
 );
 

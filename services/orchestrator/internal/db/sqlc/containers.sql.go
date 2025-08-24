@@ -11,6 +11,43 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getallContainersWhereWatched = `-- name: GetallContainersWhereWatched :many
+SELECT id, container_uid, host_id, name, image, ports, env_vars, volumes, network, watch, created_at FROM containers WHERE watch = TRUE
+`
+
+// Retrieves all containers where watched is true
+func (q *Queries) GetallContainersWhereWatched(ctx context.Context) ([]Container, error) {
+	rows, err := q.db.Query(ctx, getallContainersWhereWatched)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Container
+	for rows.Next() {
+		var i Container
+		if err := rows.Scan(
+			&i.ID,
+			&i.ContainerUid,
+			&i.HostID,
+			&i.Name,
+			&i.Image,
+			&i.Ports,
+			&i.EnvVars,
+			&i.Volumes,
+			&i.Network,
+			&i.Watch,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertContainer = `-- name: InsertContainer :one
 INSERT INTO containers (
   container_uid,
@@ -31,7 +68,7 @@ DO UPDATE SET
   env_vars = EXCLUDED.env_vars,
   volumes = EXCLUDED.volumes,
   network = EXCLUDED.network
-RETURNING id, container_uid, host_id, name, image, ports, env_vars, volumes, network, created_at
+RETURNING id, container_uid, host_id, name, image, ports, env_vars, volumes, network, watch, created_at
 `
 
 type InsertContainerParams struct {
@@ -68,6 +105,7 @@ func (q *Queries) InsertContainer(ctx context.Context, arg InsertContainerParams
 		&i.EnvVars,
 		&i.Volumes,
 		&i.Network,
+		&i.Watch,
 		&i.CreatedAt,
 	)
 	return i, err

@@ -26,6 +26,10 @@ run-orchestrator:
 	@echo "Running orchestrator"
 	go build -o ./services/orchestrator/build ./services/orchestrator/cmd/orchestrator/main.go
 	./services/orchestrator/build -config local.yaml
+run-registry-monitor:
+	@echo "Running registry-monitor"
+	go build -o ./services/registry-monitor/build ./services/registry-monitor/cmd/monitor/main.go
+	./services/registry-monitor/build
 postgres:
 	@echo "Running postgres"
 	docker run --rm -d --name dbLighthouse -e POSTGRES_USER=dev -e POSTGRES_PASSWORD=dev -p 5432:5432 postgres:13.22-alpine3.22

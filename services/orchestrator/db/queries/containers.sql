@@ -20,4 +20,6 @@ DO UPDATE SET
   volumes = EXCLUDED.volumes,
   network = EXCLUDED.network
 RETURNING *;
-
+-- name: GetallContainersWhereWatched :many
+-- Retrieves all containers where watched is true
+SELECT * FROM containers WHERE watch = TRUE;
