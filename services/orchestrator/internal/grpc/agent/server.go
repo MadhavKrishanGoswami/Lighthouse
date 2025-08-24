@@ -1,16 +1,13 @@
 // Package server provides a gRPC server implementation for handling requests.
-package server
+package agentserver
 
 import (
 	"context"
 	"log"
-	"net"
 
 	orchestrator "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/host-agents"
-	"github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/config"
 	db "github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/db/sqlc"
 	"github.com/jackc/pgx/v5/pgtype"
-	"google.golang.org/grpc"
 )
 
 type server struct {
@@ -18,7 +15,7 @@ type server struct {
 	db *db.Queries // Database queries instance
 }
 
-func newServer(queries *db.Queries) *server {
+func NewServer(queries *db.Queries) *server {
 	return &server{
 		db: queries, // Initialize the database queries instance
 	}
@@ -107,32 +104,4 @@ func (s *server) Heartbeat(ctx context.Context, req *orchestrator.HeartbeatReque
 		Success: true,
 		Message: "Heartbeat received successfully",
 	}, nil
-}
-
-func StartServer(config *config.Config, queries *db.Queries) {
-	// Start the gRPC server until it is stopped
-	log.Println("Starting gRPC server on congig agdress:", config.Addr)
-	lis, err := net.Listen("tcp", config.Addr) // Use the address from the config
-	// Listen on port 50051 for incoming gRPC requests
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-	// Create a new gRPC server instance
-
-	var opts []grpc.ServerOption
-	grpcServer := grpc.NewServer(opts...)
-
-	orchestrator.RegisterHostAgentServiceServer(grpcServer, newServer(queries))
-
-	// Log the address where the server is listening
-	log.Printf("gRPC server is listening on %s", lis.Addr().String())
-	// Gracefully shutdown the server when it is stopped
-	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
-	log.Println("gRPC server stopped gracefully")
-	// Close the listener
-	lis.Close()
-	log.Println("Listener closed")
-	log.Println("Server shutdown complete")
 }

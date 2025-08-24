@@ -7,6 +7,13 @@ protos:
        --go-grpc_out=services/common/genproto/host-agents/ \
        --go-grpc_opt=paths=source_relative \
        proto/host-agent.proto
+	@echo "Building proto for registry-monitor"
+	protoc -I proto \
+			 --go_out=services/common/genproto/registry-monitor/ \
+			 --go_opt=paths=source_relative \
+			 --go-grpc_out=services/common/genproto/registry-monitor/ \
+			 --go-grpc_opt=paths=source_relative \
+			 proto/registry-monitor.proto
 
 
 
