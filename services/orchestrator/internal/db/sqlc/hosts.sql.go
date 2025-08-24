@@ -38,7 +38,7 @@ INSERT INTO hosts (
 ) VALUES (
   $1, $2, $3
 )
-ON CONFLICT (mac_address,ip_address)
+ON CONFLICT (mac_address)
 DO UPDATE SET
   hostname = EXCLUDED.hostname,
   ip_address = EXCLUDED.ip_address
