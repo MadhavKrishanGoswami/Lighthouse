@@ -36,9 +36,9 @@ func ChecckForUpdates(ctx context.Context, grpcClient registry_monitor.RegistryM
 		}
 		// Create a ContainerInfo message
 		containerInfo := &registry_monitor.ImageInfo{
-			ContainerId: c.ID.String(),
-			Repository:  repository,
-			Tag:         tagfind,
+			ContainerUid: c.ContainerUid,
+			Repository:   repository,
+			Tag:          tagfind,
 		}
 		containerInfos = append(containerInfos, containerInfo)
 	}

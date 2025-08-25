@@ -128,9 +128,9 @@ func Monitor(checkforupdates *registry_monitor.CheckUpdatesRequest) (*registry_m
 		if currentDigest != latestDigest {
 			// An update is found. Populate the update information.
 			updateInfo := registry_monitor.ImagetoUpdate{
-				ContainerId: image.ContainerId,
-				Description: fmt.Sprintf("Update available for %s:%s. New version 'latest' is available.", image.Repository, image.Tag),
-				Timestamp:   time.Now().Unix(),
+				ContainerUid: image.ContainerUid,
+				Description:  fmt.Sprintf("Update available for %s:%s. New version 'latest' is available.", image.Repository, image.Tag),
+				Timestamp:    time.Now().Unix(),
 			}
 			// Add the found update to our response list.
 			response.ImagestoUpdate = append(response.ImagestoUpdate, &updateInfo)

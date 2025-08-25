@@ -20,6 +20,10 @@ DO UPDATE SET
   volumes = EXCLUDED.volumes,
   network = EXCLUDED.network
 RETURNING *;
+-- name: DeleteStaleContainersForHost :exec
+-- Deletes containers for a given host that are not in the provided list of UIDs.
+DELETE FROM containers
+WHERE host_id = $1 AND container_uid <> ALL($2::text[]);
 -- name: GetallContainersWhereWatched :many
 -- Retrieves all containers where watched is true
 SELECT * FROM containers WHERE watch = TRUE;

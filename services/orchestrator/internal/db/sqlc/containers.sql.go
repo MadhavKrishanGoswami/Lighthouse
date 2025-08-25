@@ -11,6 +11,22 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const deleteStaleContainersForHost = `-- name: DeleteStaleContainersForHost :exec
+DELETE FROM containers
+WHERE host_id = $1 AND container_uid <> ALL($2::text[])
+`
+
+type DeleteStaleContainersForHostParams struct {
+	HostID  pgtype.UUID `json:"host_id"`
+	Column2 []string    `json:"column_2"`
+}
+
+// Deletes containers for a given host that are not in the provided list of UIDs.
+func (q *Queries) DeleteStaleContainersForHost(ctx context.Context, arg DeleteStaleContainersForHostParams) error {
+	_, err := q.db.Exec(ctx, deleteStaleContainersForHost, arg.HostID, arg.Column2)
+	return err
+}
+
 const getallContainersWhereWatched = `-- name: GetallContainersWhereWatched :many
 SELECT id, container_uid, host_id, name, image, ports, env_vars, volumes, network, watch, created_at FROM containers WHERE watch = TRUE
 `

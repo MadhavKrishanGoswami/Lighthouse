@@ -11,6 +11,8 @@ import (
 )
 
 type Querier interface {
+	// Deletes containers for a given host that are not in the provided list of UIDs.
+	DeleteStaleContainersForHost(ctx context.Context, arg DeleteStaleContainersForHostParams) error
 	// Retrieves a host by its mac_address.
 	GertHostByMacAddress(ctx context.Context, macAddress string) (Host, error)
 	// Retrieves all containers where watched is true

@@ -63,27 +63,32 @@ func (s *server) RegisterHost(ctx context.Context, req *orchestrator.RegisterHos
 }
 
 func (s *server) Heartbeat(ctx context.Context, req *orchestrator.HeartbeatRequest) (*orchestrator.HeartbeatResponse, error) {
-	// Implement the logic to handle heartbeat messages here
 	log.Printf("Received heartbeat from host: %s", req.MacAddress)
-	// Log each container info
+
 	host, err := s.db.GertHostByMacAddress(ctx, req.MacAddress)
 	if err != nil {
-		log.Printf("Failed to get host by IP: %v", err)
+		log.Printf("Failed to get host by MAC address: %v", err)
 		return &orchestrator.HeartbeatResponse{
 			Success: false,
-			Message: "Failed to get host by IP with error: " + err.Error(),
+			Message: "Failed to get host by MAC address: " + err.Error(),
 		}, nil
 	}
-	// inserat last heartbeat timestamp
+
+	// Update last heartbeat timestamp
 	_, err = s.db.UpdateHostLastHeartbeat(ctx, host.ID)
 	if err != nil {
 		log.Printf("Failed to update host last heartbeat: %v", err)
-		return &orchestrator.HeartbeatResponse{
-			Success: false,
-			Message: "Failed to update host last heartbeat with error: " + err.Error(),
-		}, nil
+		// Non-critical error, we can continue processing containers
 	}
-	// Upsert containers
+
+	// --- NEW: Step 1 - Collect all active container UIDs from the request ---
+	// We'll use this list later to determine which containers are stale.
+	var activeContainerUIDs []string
+	for _, container := range req.Containers {
+		activeContainerUIDs = append(activeContainerUIDs, container.ContainerID)
+	}
+
+	// Upsert all containers from the current heartbeat
 	for _, container := range req.Containers {
 		containerParams := db.InsertContainerParams{
 			ContainerUid: container.ContainerID,
@@ -97,11 +102,32 @@ func (s *server) Heartbeat(ctx context.Context, req *orchestrator.HeartbeatReque
 		}
 		_, err := s.db.InsertContainer(ctx, containerParams)
 		if err != nil {
-			log.Printf("Failed to register container: %v", err)
+			// Log the error but continue trying to process other containers
+			log.Printf("Failed to upsert container %s: %v", container.Name, err)
 		}
 	}
+
+	// --- NEW: Step 2 - Delete stale containers for this host ---
+	// If there were no active containers, the slice will be empty, and this will
+	// correctly delete all containers associated with the host.
+	deleteParams := db.DeleteStaleContainersForHostParams{
+		HostID:  host.ID,
+		Column2: activeContainerUIDs,
+	}
+	err = s.db.DeleteStaleContainersForHost(ctx, deleteParams)
+	if err != nil {
+		log.Printf("Failed to delete stale containers: %v", err)
+		// This is a significant issue, but the main heartbeat has been processed.
+		// You might want to handle this error more robustly.
+		return &orchestrator.HeartbeatResponse{
+			Success: false,
+			Message: "Heartbeat processed, but failed to clean up stale containers: " + err.Error(),
+		}, nil
+	}
+
+	log.Printf("Successfully synced %d containers for host %s", len(activeContainerUIDs), req.MacAddress)
 	return &orchestrator.HeartbeatResponse{
 		Success: true,
-		Message: "Heartbeat received successfully",
+		Message: "Heartbeat received and containers synced successfully",
 	}, nil
 }
