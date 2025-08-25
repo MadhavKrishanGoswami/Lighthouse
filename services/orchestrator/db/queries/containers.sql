@@ -5,16 +5,18 @@ INSERT INTO containers (
   host_id,
   name,
   image,
+  digest,
   ports,
   env_vars,
   volumes,
   network
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 ON CONFLICT (container_uid)
 DO UPDATE SET
   host_id = EXCLUDED.host_id,
   name = EXCLUDED.name,
   image = EXCLUDED.image,
+  digest = EXCLUDED.digest,
   ports = EXCLUDED.ports,
   env_vars = EXCLUDED.env_vars,
   volumes = EXCLUDED.volumes,

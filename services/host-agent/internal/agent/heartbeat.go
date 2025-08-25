@@ -59,6 +59,7 @@ func Heartbeat(cli *dockerclient.Client, ctx context.Context, gRPCClient host_ag
 			ContainerID: c.ID,
 			Name:        strings.TrimPrefix(inspect.Name, "/"),
 			Image:       inspect.Config.Image,
+			Digest:      inspect.Image,
 			Ports:       ports,
 			EnvVars:     envVars,
 			Volumes:     volumes,

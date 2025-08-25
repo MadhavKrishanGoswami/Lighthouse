@@ -13,6 +13,7 @@ message ContainerInfo {
   string containerID = 1;     // Unique identifier for the container
   string name = 2;            // Name of the container
   string image = 3;           // Docker image used for the container
+  string digest = 8;          // Image digest for versioning
   repeated string ports = 4;  // List of ports exposed by the container
   repeated string envVars = 5;
   repeated string volumes = 6;

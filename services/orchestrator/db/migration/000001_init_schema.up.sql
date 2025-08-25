@@ -34,6 +34,7 @@ CREATE TABLE containers (
   host_id uuid NOT NULL,
   name varchar NOT NULL,
   image varchar NOT NULL,
+  digest varchar NOT NULL,
   ports text[],
   env_vars text[],
   volumes text[],

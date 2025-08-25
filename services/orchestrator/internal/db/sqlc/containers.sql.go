@@ -28,7 +28,7 @@ func (q *Queries) DeleteStaleContainersForHost(ctx context.Context, arg DeleteSt
 }
 
 const getallContainersWhereWatched = `-- name: GetallContainersWhereWatched :many
-SELECT id, container_uid, host_id, name, image, ports, env_vars, volumes, network, watch, created_at FROM containers WHERE watch = TRUE
+SELECT id, container_uid, host_id, name, image, digest, ports, env_vars, volumes, network, watch, created_at FROM containers WHERE watch = TRUE
 `
 
 // Retrieves all containers where watched is true
@@ -47,6 +47,7 @@ func (q *Queries) GetallContainersWhereWatched(ctx context.Context) ([]Container
 			&i.HostID,
 			&i.Name,
 			&i.Image,
+			&i.Digest,
 			&i.Ports,
 			&i.EnvVars,
 			&i.Volumes,
@@ -70,21 +71,23 @@ INSERT INTO containers (
   host_id,
   name,
   image,
+  digest,
   ports,
   env_vars,
   volumes,
   network
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 ON CONFLICT (container_uid)
 DO UPDATE SET
   host_id = EXCLUDED.host_id,
   name = EXCLUDED.name,
   image = EXCLUDED.image,
+  digest = EXCLUDED.digest,
   ports = EXCLUDED.ports,
   env_vars = EXCLUDED.env_vars,
   volumes = EXCLUDED.volumes,
   network = EXCLUDED.network
-RETURNING id, container_uid, host_id, name, image, ports, env_vars, volumes, network, watch, created_at
+RETURNING id, container_uid, host_id, name, image, digest, ports, env_vars, volumes, network, watch, created_at
 `
 
 type InsertContainerParams struct {
@@ -92,6 +95,7 @@ type InsertContainerParams struct {
 	HostID       pgtype.UUID `json:"host_id"`
 	Name         string      `json:"name"`
 	Image        string      `json:"image"`
+	Digest       string      `json:"digest"`
 	Ports        []string    `json:"ports"`
 	EnvVars      []string    `json:"env_vars"`
 	Volumes      []string    `json:"volumes"`
@@ -105,6 +109,7 @@ func (q *Queries) InsertContainer(ctx context.Context, arg InsertContainerParams
 		arg.HostID,
 		arg.Name,
 		arg.Image,
+		arg.Digest,
 		arg.Ports,
 		arg.EnvVars,
 		arg.Volumes,
@@ -117,6 +122,7 @@ func (q *Queries) InsertContainer(ctx context.Context, arg InsertContainerParams
 		&i.HostID,
 		&i.Name,
 		&i.Image,
+		&i.Digest,
 		&i.Ports,
 		&i.EnvVars,
 		&i.Volumes,

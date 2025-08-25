@@ -39,6 +39,7 @@ func ChecckForUpdates(ctx context.Context, grpcClient registry_monitor.RegistryM
 			ContainerUid: c.ContainerUid,
 			Repository:   repository,
 			Tag:          tagfind,
+			Digest:       c.Digest,
 		}
 		containerInfos = append(containerInfos, containerInfo)
 	}

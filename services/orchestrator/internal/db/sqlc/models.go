@@ -110,6 +110,7 @@ type Container struct {
 	HostID    pgtype.UUID        `json:"host_id"`
 	Name      string             `json:"name"`
 	Image     string             `json:"image"`
+	Digest    string             `json:"digest"`
 	Ports     []string           `json:"ports"`
 	EnvVars   []string           `json:"env_vars"`
 	Volumes   []string           `json:"volumes"`

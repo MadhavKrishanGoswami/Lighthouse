@@ -62,6 +62,7 @@ func RegisterAgent(cli *dockerclient.Client, ctx context.Context, gRPCClient hos
 			Name:        strings.TrimPrefix(inspect.Name, "/"),
 			Image:       inspect.Config.Image,
 			Ports:       ports,
+			Digest:      inspect.Image,
 			EnvVars:     envVars,
 			Volumes:     volumes,
 			Network:     string(inspect.HostConfig.NetworkMode),
