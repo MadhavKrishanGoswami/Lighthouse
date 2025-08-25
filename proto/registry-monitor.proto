@@ -4,39 +4,33 @@ package registrymonitor;
 
 option go_package = "github.com/MadhavKrishanGoswami/Lighthouse/services/registry-monitor";
 
-
-//==========================
-// messages
-//==========================
+// ==========================
+// Messages
+// ==========================
 message ImageInfo {
-  string repository = 1; // e.g., "nginx"
-  string tag = 2;        // e.g., "latest"
-}
-message ImageUpdateEvent {
-  ImageInfo image = 1;
-  string description = 2; // e.g., "New image pushed to registry"
-  int64 timestamp = 3;    // Unix timestamp of the event
-}
-//==========================
-// Request / Response Wrappers
-//==========================
-message UpdateWatchlistRequest {
-  repeated ImageInfo images = 1;
-}
-message WatchlistUpatedResponse {
-  bool success = 1;
-  string message = 2;
-}
-message GetUpdatesRequest {
-  int64 since_timestamp = 1; // Fetch updates since this timestamp
-}
-message GetUpdatesResponse {
-  repeated ImageUpdateEvent updates = 1;
+  string containerId = 1; // Unique ID for the container
+  string repository = 2; // e.g., "nginx"
+  string tag = 3;        // e.g., "1.25.0"
 }
 
+message CheckUpdatesRequest {
+  repeated ImageInfo images = 1; // List of images currently in use
+}
 
-// Service implemented by Orchestrator; called by Registry Monitor
+message ImagetoUpdate {
+  string containerId = 1; // Unique ID for the container
+  string description = 2;  // Optional info, e.g., "Patch release available"
+  int64 timestamp = 5;     // Unix timestamp when update was detected
+}
+
+message CheckUpdatesResponse {
+  repeated ImagetoUpdate ImagestoUpdate = 1; // Only images with updates
+}
+
+// ==========================
+// Service
+// ==========================
 service RegistryMonitorService {
-  rpc UpdateWatchlist(UpdateWatchlistRequest) returns (WatchlistUpatedResponse);
-  rpc GetUpdates(GetUpdatesRequest) returns (GetUpdatesResponse);
+  // Orchestrator calls this to check for updates on a batch of images
+  rpc CheckUpdates(CheckUpdatesRequest) returns (CheckUpdatesResponse);
 }

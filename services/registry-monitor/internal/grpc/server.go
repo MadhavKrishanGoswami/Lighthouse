@@ -1,10 +1,11 @@
+// Package monitorServer implements the gRPC server for the registry-monitor service.
 package monitorServer
 
 import (
 	"context"
-	"log"
 
 	registry_monitor "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/registry-monitor"
+	"github.com/MadhavKrishanGoswami/Lighthouse/services/registry-monitor/internal/monitor"
 )
 
 type server struct {
@@ -15,17 +16,7 @@ func NewServer() *server {
 	return &server{}
 }
 
-func (s *server) UpdateWatchlist(ctx context.Context, req *registry_monitor.UpdateWatchlistRequest) (*registry_monitor.WatchlistUpatedResponse, error) {
+func (s *server) CheckUpdates(ctx context.Context, req *registry_monitor.CheckUpdatesRequest) (*registry_monitor.CheckUpdatesResponse, error) {
 	// Implement the logic to update the watchlist here
-	log.Printf("Received request to update watchlist: %v", req.Images)
-
-	// Here, you would typically update the watchlist in your database or in-memory store.
-	// For demonstration purposes, we'll just log the received watchlist.
-
-	log.Printf("Watchlist updated successfully")
-
-	return &registry_monitor.WatchlistUpatedResponse{
-		Success: true,
-		Message: "Watchlist updated successfully",
-	}, nil
+	return monitor.Monitor(req)
 }

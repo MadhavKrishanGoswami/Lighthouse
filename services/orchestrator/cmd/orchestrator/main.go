@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	// Internal package imports
 	"github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/config"
@@ -71,6 +70,8 @@ func main() {
 	agentpb.RegisterHostAgentServiceServer(grpcServer, agentServer)
 	log.Println("HostAgentService registered.")
 
+	// -----
+
 	// --- 6. Server Start & Graceful Shutdown ---
 	// Start the server in a background goroutine so it doesn't block.
 	go func() {
@@ -80,24 +81,10 @@ func main() {
 		}
 	}()
 
-	// -- 7. send Watchlist to registry Monitor every 30 seconds
-	// Start Heart Brate to send periodic updates to the orchestrator
-	go func() {
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				err := monitor.UpdateWatchlistinRegistryMonitor(ctx, registryMonitorClient, queries)
-				if err != nil {
-					log.Printf("Error updating watchlist in registry monitor: %v", err)
-				}
-			case <-ctx.Done():
-				log.Println("Stopping watchlist update loop")
-				return
-			}
-		}
-	}()
+	err = monitor.ChecckForUpdates(ctx, registryMonitorClient, queries)
+	if err != nil {
+		log.Printf("Error checking for updates: %v", err)
+	}
 	// Wait for a shutdown signal (e.g., Ctrl+C).
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
