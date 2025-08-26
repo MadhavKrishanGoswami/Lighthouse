@@ -1,3 +1,4 @@
+// Package monitor provides functionalities for monitoring container updates.
 package monitor
 
 import (

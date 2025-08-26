@@ -1,4 +1,4 @@
-// package monitor provides functionality to check for updates to Docker images
+// Package monitor provides functionality to check for updates to Docker images
 package monitor
 
 import (

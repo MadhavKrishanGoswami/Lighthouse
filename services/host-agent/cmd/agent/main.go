@@ -48,7 +48,7 @@ func main() {
 
 	// Start Heart Brate to send periodic updates to the orchestrator
 	go func() {
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(60 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
@@ -64,6 +64,13 @@ func main() {
 			}
 		}
 	}()
+	// Start UpdateContainer gRPC stream
+	go func() {
+		if err := agent.UpdateContainerStream(cli, ctx, gRPCClient, "agent-001"); err != nil {
+			log.Printf("failed to start UpdateContainer stream: %v", err)
+		}
+	}()
+
 	// Wait for a termination signal (e.g., Ctrl+C) to gracefully shut Down the agent
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)

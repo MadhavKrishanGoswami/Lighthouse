@@ -1,4 +1,3 @@
-
 syntax = "proto3";
 
 package orchestrator;
@@ -27,33 +26,6 @@ message HostInfo {
   repeated ContainerInfo containers = 5;
 }
 
-
-
-message UpdateContainerCommand {
-  string deploymentID = 1;
-  string image = 2;
-  repeated string overrideEnvVars = 3;
-  repeated string overridePorts = 4;
-  repeated string overrideVolumes = 5;
-  string overrideNetwork = 6;
-}
-
-message UpdateStatus {
-  string deploymentID = 1;
-  string containerID = 2;
-  enum Stage {
-    UNKNOWN = 0;
-    PULLING = 1;
-    STARTING = 2;
-    HEALTH_CHECK = 3;
-    COMPLETED = 4;
-    ROLLBACK = 5;
-    FAILED = 6;
-  }
-  Stage stage = 3;
-  string logs = 4;
-}
-
 // ====================
 // Request / Response Wrappers
 // ====================
@@ -66,22 +38,45 @@ message RegisterHostResponse {
   bool success = 1;
   string message = 2;
 }
+
 message HeartbeatRequest {
   string mac_address = 1;
   repeated ContainerInfo containers = 3;
 }
+
 message HeartbeatResponse {
   bool success = 1;
   string message = 2;
 }
-message UpdateContainerRequest {
-  string hostID = 1;
-  UpdateContainerCommand command = 2;
+
+message UpdateContainerCommand {
+  string deploymentID = 1;
+  string containerID = 2;              // which container to update
+  string image = 3;                    // target image (repo:tag or digest)
+  repeated string overrideEnvVars = 4; // optional overrides
+  repeated string overridePorts = 5;
+  repeated string overrideVolumes = 6;
+  string overrideNetwork = 7;
+  string mac_address = 8; // target host
 }
 
-message UpdateContainerResponse {
-  bool accepted = 1;
-  string message = 2;
+message UpdateStatus {
+  string deploymentID = 1;
+  string containerID = 2;
+  string mac_address = 6; // target host
+  enum Stage {
+    UNKNOWN = 0;
+    PULLING = 1;
+    STARTING = 2;
+    HEALTH_CHECK = 3;
+    COMPLETED = 4;
+    ROLLBACK = 5;
+    FAILED = 6;
+  }
+
+  Stage stage = 3;
+  string logs = 4;        // status log/err messages
+  string timestamp = 5;   // optional, useful for ordering
 }
 
 // ====================
@@ -95,10 +90,9 @@ service HostAgentService {
   // Agent -> Orchestrator: Periodic heartbeat (unary)
   rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
 
-  // Orchestrator -> Agent: Tell agent to update a container
-  rpc UpdateContainer(UpdateContainerRequest) returns (UpdateContainerResponse);
-
-  // Agent <-> Orchestrator: Stream update statuses
-  rpc UpdateStatusStream(stream UpdateStatus) returns (stream UpdateStatus);
+  // Agent -> Orchestrator: Initiates bidirectional stream
+  // Orchestrator can send UpdateContainerCommand anytime after stream is open
+  // Agent responds with UpdateStatus for each command
+  rpc ConnectAgentStream(stream UpdateStatus) returns (stream UpdateContainerCommand);
 }
 

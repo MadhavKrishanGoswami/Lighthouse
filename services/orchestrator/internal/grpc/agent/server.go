@@ -1,9 +1,11 @@
-// Package server provides a gRPC server implementation for handling requests.
+// Package agentserver provides a gRPC server implementation for handling requests.
 package agentserver
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"sync"
 
 	orchestrator "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/host-agents"
 	db "github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/db/sqlc"
@@ -13,11 +15,15 @@ import (
 type server struct {
 	orchestrator.UnimplementedHostAgentServiceServer
 	db *db.Queries // Database queries instance
+	mu sync.Mutex
+
+	agents map[string]orchestrator.HostAgentService_ConnectAgentStreamServer
 }
 
 func NewServer(queries *db.Queries) *server {
 	return &server{
-		db: queries, // Initialize the database queries instance
+		db:     queries, // Initialize the database queries instance
+		agents: make(map[string]orchestrator.HostAgentService_ConnectAgentStreamServer),
 	}
 }
 
@@ -132,4 +138,44 @@ func (s *server) Heartbeat(ctx context.Context, req *orchestrator.HeartbeatReque
 		Success: true,
 		Message: "Heartbeat received and containers synced successfully",
 	}, nil
+}
+
+func (s *server) ConnectAgentStream(stream orchestrator.HostAgentService_ConnectAgentStreamServer) error {
+	firstMsg, err := stream.Recv()
+	if err != nil {
+		log.Printf("Failed to receive initial message from stream: %v", err)
+		return err
+	}
+	agentID := firstMsg.MacAddress
+	log.Printf("Agent connected with ID: %s", agentID)
+	// Store the stream in the map with mutex protection
+	s.mu.Lock()
+	s.agents[agentID] = stream
+	s.mu.Unlock()
+
+	// Keep reading for messages from agent (like UpdateStatus)
+	for {
+		msg, err := stream.Recv()
+		if err != nil {
+			log.Printf("stream closed from agent %s: %v", agentID, err)
+			s.mu.Lock()
+			delete(s.agents, agentID)
+			s.mu.Unlock()
+			return err
+		}
+		log.Printf("Received status from %s: %+v", agentID, msg.Stage)
+	}
+}
+
+// SendCommand sends a command to a specific agent from ANYWHERE in your code
+func (s *server) SendUpdateCommand(agentID string, cmd *orchestrator.UpdateContainerCommand) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	stream, ok := s.agents[agentID]
+	if !ok {
+		return fmt.Errorf("agent %s not connected", agentID)
+	}
+
+	return stream.Send(cmd)
 }
