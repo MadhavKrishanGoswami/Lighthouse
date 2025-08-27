@@ -20,6 +20,7 @@ message CheckUpdatesRequest {
 
 message ImagetoUpdate {
   string containerUid = 1; // Unique ID for the container
+  string newTag = 3;        // e.g., "1.25.1"
   string description = 2;  // Optional info, e.g., "Patch release available"
   int64 timestamp = 5;     // Unix timestamp when update was detected
 }

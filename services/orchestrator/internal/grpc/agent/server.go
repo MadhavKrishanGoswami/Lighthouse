@@ -12,22 +12,22 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type server struct {
+type Server struct {
 	orchestrator.UnimplementedHostAgentServiceServer
 	db *db.Queries // Database queries instance
 	mu sync.Mutex
 
-	agents map[string]orchestrator.HostAgentService_ConnectAgentStreamServer
+	Hosts map[string]orchestrator.HostAgentService_ConnectAgentStreamServer
 }
 
-func NewServer(queries *db.Queries) *server {
-	return &server{
-		db:     queries, // Initialize the database queries instance
-		agents: make(map[string]orchestrator.HostAgentService_ConnectAgentStreamServer),
+func NewServer(queries *db.Queries) *Server {
+	return &Server{
+		db:    queries, // Initialize the database queries instance
+		Hosts: make(map[string]orchestrator.HostAgentService_ConnectAgentStreamServer),
 	}
 }
 
-func (s *server) RegisterHost(ctx context.Context, req *orchestrator.RegisterHostRequest) (*orchestrator.RegisterHostResponse, error) {
+func (s *Server) RegisterHost(ctx context.Context, req *orchestrator.RegisterHostRequest) (*orchestrator.RegisterHostResponse, error) {
 	// Implement the logic to register a host here
 	log.Printf("Received request to register host: %s", req.Host.Hostname+" with IP: "+req.Host.IpAddress)
 
@@ -69,7 +69,7 @@ func (s *server) RegisterHost(ctx context.Context, req *orchestrator.RegisterHos
 	}, nil
 }
 
-func (s *server) Heartbeat(ctx context.Context, req *orchestrator.HeartbeatRequest) (*orchestrator.HeartbeatResponse, error) {
+func (s *Server) Heartbeat(ctx context.Context, req *orchestrator.HeartbeatRequest) (*orchestrator.HeartbeatResponse, error) {
 	log.Printf("Received heartbeat from host: %s", req.MacAddress)
 
 	host, err := s.db.GertHostByMacAddress(ctx, req.MacAddress)
@@ -140,7 +140,7 @@ func (s *server) Heartbeat(ctx context.Context, req *orchestrator.HeartbeatReque
 	}, nil
 }
 
-func (s *server) ConnectAgentStream(stream orchestrator.HostAgentService_ConnectAgentStreamServer) error {
+func (s *Server) ConnectAgentStream(stream orchestrator.HostAgentService_ConnectAgentStreamServer) error {
 	firstMsg, err := stream.Recv()
 	if err != nil {
 		log.Printf("Failed to receive initial message from stream: %v", err)
@@ -150,7 +150,7 @@ func (s *server) ConnectAgentStream(stream orchestrator.HostAgentService_Connect
 	log.Printf("Agent connected with ID: %s", agentID)
 	// Store the stream in the map with mutex protection
 	s.mu.Lock()
-	s.agents[agentID] = stream
+	s.Hosts[agentID] = stream
 	s.mu.Unlock()
 
 	// Keep reading for messages from agent (like UpdateStatus)
@@ -159,7 +159,7 @@ func (s *server) ConnectAgentStream(stream orchestrator.HostAgentService_Connect
 		if err != nil {
 			log.Printf("stream closed from agent %s: %v", agentID, err)
 			s.mu.Lock()
-			delete(s.agents, agentID)
+			delete(s.Hosts, agentID)
 			s.mu.Unlock()
 			return err
 		}
@@ -168,11 +168,11 @@ func (s *server) ConnectAgentStream(stream orchestrator.HostAgentService_Connect
 }
 
 // SendCommand sends a command to a specific agent from ANYWHERE in your code
-func (s *server) SendUpdateCommand(agentID string, cmd *orchestrator.UpdateContainerCommand) error {
+func (s *Server) SendUpdateCommand(agentID string, cmd *orchestrator.UpdateContainerCommand) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	stream, ok := s.agents[agentID]
+	stream, ok := s.Hosts[agentID]
 	if !ok {
 		return fmt.Errorf("agent %s not connected", agentID)
 	}

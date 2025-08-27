@@ -15,6 +15,8 @@ type Querier interface {
 	DeleteStaleContainersForHost(ctx context.Context, arg DeleteStaleContainersForHostParams) error
 	// Retrieves a host by its mac_address.
 	GertHostByMacAddress(ctx context.Context, macAddress string) (Host, error)
+	// Retrieves the MAC address of the host associated with a given container UID.
+	GetMacAddressByContainerUID(ctx context.Context, containerUid string) (string, error)
 	// Retrieves all containers where watched is true
 	GetallContainersWhereWatched(ctx context.Context) ([]Container, error)
 	// Inserts or updates container based on container_uid

@@ -34,6 +34,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	cli, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv, dockerclient.WithAPIVersionNegotiation())
 	if err != nil {
 		panic(err)
@@ -48,7 +49,7 @@ func main() {
 
 	// Start Heart Brate to send periodic updates to the orchestrator
 	go func() {
-		ticker := time.NewTicker(60 * time.Second)
+		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
@@ -66,7 +67,7 @@ func main() {
 	}()
 	// Start UpdateContainer gRPC stream
 	go func() {
-		if err := agent.UpdateContainerStream(cli, ctx, gRPCClient, "agent-001"); err != nil {
+		if err := agent.UpdateContainerStream(cli, ctx, gRPCClient); err != nil {
 			log.Printf("failed to start UpdateContainer stream: %v", err)
 		}
 	}()

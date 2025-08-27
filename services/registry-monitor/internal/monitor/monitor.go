@@ -1,135 +1,187 @@
-// Package monitor provides functionality to check for updates to Docker images
+// Package monitor is a package
 package monitor
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	registry_monitor "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/registry-monitor"
 )
 
 const (
-	// Note: Removed non-breaking space characters for consistency.
 	dockerAuthURL     = "https://auth.docker.io/token?service=registry.docker.io&scope=repository:%s:pull"
 	dockerRegistryURL = "https://registry-1.docker.io/v2/%s/manifests/%s"
+	cacheTTL          = 10 * time.Minute // Cache results for 5 minutes.
 )
 
-// authResponse is a private struct to unmarshal the JSON response from the Docker auth server.
+// authResponse stores the token from the Docker auth server.
 type authResponse struct {
 	Token string `json:"token"`
 }
 
-// getAuthToken fetches an anonymous, read-only token for a given Docker Hub repository.
-func getAuthToken(repository string) (string, error) {
-	// Format the URL with the specific repository we want to access.
-	url := fmt.Sprintf(dockerAuthURL, repository)
+// cachedDigest holds the cached digest for a repository's 'latest' tag.
+type cachedDigest struct {
+	digest    string
+	expiresAt time.Time
+}
 
-	resp, err := http.Get(url)
+// Global cache and a mutex to prevent race conditions.
+var (
+	digestCache = make(map[string]cachedDigest)
+	cacheMutex  = &sync.Mutex{}
+	// Use a shared, configured client for all HTTP requests.
+	httpClient = &http.Client{
+		Timeout: 15 * time.Second,
+		Transport: &http.Transport{
+			MaxIdleConns:        100,
+			MaxIdleConnsPerHost: 10,
+			IdleConnTimeout:     90 * time.Second,
+		},
+	}
+)
+
+// getAuthToken fetches a read-only token for a Docker Hub repository.
+func getAuthToken(repository string) (string, error) {
+	url := fmt.Sprintf(dockerAuthURL, repository)
+	resp, err := httpClient.Get(url)
 	if err != nil {
-		return "", fmt.Errorf("failed to make auth request to Docker Hub: %w", err)
+		return "", fmt.Errorf("failed to make auth request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("docker auth request failed with status: %s", resp.Status)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read auth response body: %w", err)
+		return "", fmt.Errorf("auth request failed with status: %s", resp.Status)
 	}
 
 	var authResp authResponse
-	if err := json.Unmarshal(body, &authResp); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&authResp); err != nil {
 		return "", fmt.Errorf("failed to unmarshal auth token: %w", err)
 	}
-
 	return authResp.Token, nil
 }
 
-// getlatestDigest retrieves the digest of the 'latest' tag for a given repository using the provided token.
-func getlatestDigest(repository, token string) (string, error) {
-	// Format the URL to fetch the manifest for the 'latest' tag.
-	url := fmt.Sprintf(dockerRegistryURL, repository, "latest")
+// getLatestDigest fetches the digest for the "latest" tag of a repository.
+// It correctly handles multi-arch manifests and falls back to calculating the digest if the header is missing.
+func getLatestDigest(repository, token string) (string, error) {
+	// --- Step 1: Check the cache first ---
+	cacheMutex.Lock()
+	cached, found := digestCache[repository]
+	cacheMutex.Unlock()
 
-	req, err := http.NewRequest("GET", url, nil)
+	// if found but expired then just delete it
+	if found && !time.Now().Before(cached.expiresAt) {
+		// ...delete it and pretend it wasn't found.
+		delete(digestCache, repository)
+		found = false
+	}
+	cacheMutex.Unlock()
+
+	if found && time.Now().Before(cached.expiresAt) {
+		return cached.digest, nil
+	}
+
+	// --- Step 2: Fetch the manifest for the "latest" tag ---
+	manifestURL := fmt.Sprintf(dockerRegistryURL, repository, "latest")
+	req, err := http.NewRequest("GET", manifestURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create manifest request: %w", err)
 	}
-
-	// Set the Authorization header with the Bearer token.
 	req.Header.Set("Authorization", "Bearer "+token)
-	// Request the v2 manifest schema 2
-	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
+	// ✅ Correctly accept both single-arch and multi-arch manifest lists.
+	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json, application/vnd.docker.distribution.manifest.list.v2+json")
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to make manifest request: %w", err)
+		return "", fmt.Errorf("failed to execute manifest request: %w", err)
 	}
+	// ✅ Correctly defer Body.Close() immediately after checking for a nil response.
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("manifest request failed with status: %s", resp.Status)
+		return "", fmt.Errorf("manifest request for '%s' failed with status: %s", repository, resp.Status)
 	}
 
-	// The digest is provided in the Docker-Content-Digest header.
-	digest := resp.Header.Get("Docker-Content-Digest")
-	if digest == "" {
-		return "", fmt.Errorf("digest not found in response headers")
+	// --- Step 3: Get the digest ---
+	// Prioritize the header, as it's the most reliable source.
+	latestDigest := resp.Header.Get("Docker-Content-Digest")
+	if latestDigest == "" {
+		// ✅ Fallback: If the header is missing, calculate the SHA256 digest of the body.
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return "", fmt.Errorf("failed to read manifest body for digest calculation: %w", err)
+		}
+		latestDigest = fmt.Sprintf("sha256:%x", sha256.Sum256(bodyBytes))
 	}
 
-	return digest, nil
+	// --- Step 4: Update the cache ---
+	cacheMutex.Lock()
+	digestCache[repository] = cachedDigest{
+		digest:    latestDigest,
+		expiresAt: time.Now().Add(cacheTTL),
+	}
+	cacheMutex.Unlock()
+
+	return latestDigest, nil
 }
 
-// Monitor checks a list of Docker images to see if a newer version tagged as 'latest' is available.
+// Monitor checks a list of Docker images concurrently to find available updates.
 func Monitor(checkforupdates *registry_monitor.CheckUpdatesRequest) (*registry_monitor.CheckUpdatesResponse, error) {
-	// Initialize the response object.
-	var response registry_monitor.CheckUpdatesResponse
+	var (
+		wg sync.WaitGroup
+		// Use a buffered channel to prevent goroutines from blocking.
+		updates  = make(chan *registry_monitor.ImagetoUpdate, len(checkforupdates.Images))
+		response = &registry_monitor.CheckUpdatesResponse{}
+	)
 
-	// Loop through each image provided in the request.
 	for _, image := range checkforupdates.Images {
-		repoName := image.Repository
-		if !strings.Contains(repoName, "/") {
-			repoName = "library/" + repoName
-		}
-
-		// Step 1: Get the authentication token for the repository.
-		token, err := getAuthToken(repoName)
-		if err != nil {
-			// If we can't get a token for one image, we can log it and continue with the others.
-			fmt.Printf("Could not get auth token for %s. Skipping. Error: %v\n", repoName, err)
-			continue
-		}
-
-		// Step 2: Get the digest of the user's current image tag.
-		currentDigest := image.Digest
-
-		// Step 3: Get the digest of the 'latest' tag for comparison.
-		latestDigest, err := getlatestDigest(repoName, token)
-		if err != nil {
-			// The repository might not have a 'latest' tag.
-			fmt.Printf("Could not get digest for latest tag on %s. Skipping. Error: %v\n", repoName, err)
-			continue
-		}
-
-		// Step 4: Compare the digests. If they are different, an update is available.
-		if currentDigest != latestDigest {
-			// An update is found. Populate the update information.
-			updateInfo := registry_monitor.ImagetoUpdate{
-				ContainerUid: image.ContainerUid,
-				Description:  fmt.Sprintf("Update available for %s: current digest %s, latest digest %s", image.Repository, currentDigest, latestDigest),
-				Timestamp:    time.Now().Unix(),
+		wg.Add(1)
+		// Pass the image by value to the goroutine to avoid loop variable capture issues.
+		go func(img *registry_monitor.ImageInfo) {
+			defer wg.Done()
+			repoName := img.Repository
+			if !strings.Contains(repoName, "/") {
+				repoName = "library/" + repoName
 			}
-			// Add the found update to our response list.
-			response.ImagestoUpdate = append(response.ImagestoUpdate, &updateInfo)
-		}
+
+			token, err := getAuthToken(repoName)
+			if err != nil {
+				log.Printf("ERROR: Could not get auth token for %s: %v", repoName, err)
+				return
+			}
+
+			latestDigest, err := getLatestDigest(repoName, token)
+			if err != nil {
+				log.Printf("ERROR: Could not get latest digest for %s: %v", repoName, err)
+				return
+			}
+
+			if img.Digest != latestDigest {
+				log.Printf("INFO: Update found for %s. Current: %s, Latest: %s", repoName, img.Digest, latestDigest)
+				updates <- &registry_monitor.ImagetoUpdate{
+					ContainerUid: img.ContainerUid,
+					NewTag:       "latest", // The new tag is simply "latest".
+					Description:  fmt.Sprintf("Update available for %s. New digest: %s", img.Repository, latestDigest),
+					Timestamp:    time.Now().Unix(),
+				}
+			}
+		}(image)
 	}
 
-	// Return the list of found updates and no error.
-	return &response, nil
+	// Wait for all checks to complete.
+	wg.Wait()
+	// Close the channel to signal that no more updates will be sent.
+	close(updates)
+
+	for update := range updates {
+		response.ImagestoUpdate = append(response.ImagestoUpdate, update)
+	}
+
+	return response, nil
 }

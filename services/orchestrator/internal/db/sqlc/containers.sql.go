@@ -27,6 +27,21 @@ func (q *Queries) DeleteStaleContainersForHost(ctx context.Context, arg DeleteSt
 	return err
 }
 
+const getMacAddressByContainerUID = `-- name: GetMacAddressByContainerUID :one
+SELECT h.mac_address
+FROM hosts h
+JOIN containers c ON h.id = c.host_id
+WHERE c.container_uid = $1
+`
+
+// Retrieves the MAC address of the host associated with a given container UID.
+func (q *Queries) GetMacAddressByContainerUID(ctx context.Context, containerUid string) (string, error) {
+	row := q.db.QueryRow(ctx, getMacAddressByContainerUID, containerUid)
+	var mac_address string
+	err := row.Scan(&mac_address)
+	return mac_address, err
+}
+
 const getallContainersWhereWatched = `-- name: GetallContainersWhereWatched :many
 SELECT id, container_uid, host_id, name, image, digest, ports, env_vars, volumes, network, watch, created_at FROM containers WHERE watch = TRUE
 `

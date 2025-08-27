@@ -11,12 +11,16 @@ import (
 	"syscall"
 	"time"
 
-	host_agent "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/host-agents"
 	orchestrator "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/host-agents"
 	dockerclient "github.com/moby/moby/client"
 )
 
-func UpdateContainerStream(cli *dockerclient.Client, ctx context.Context, gRPCClient host_agent.HostAgentServiceClient, agentID string) error {
+func UpdateContainerStream(cli *dockerclient.Client, ctx context.Context, gRPCClient orchestrator.HostAgentServiceClient) error {
+	// Get agent ID (MAC address)
+	agentID, err := GetMACAddress()
+	if err != nil {
+		log.Printf("Failed to get MAC address: %v", err)
+	}
 	stream, err := gRPCClient.ConnectAgentStream(ctx)
 	if err != nil {
 		return err

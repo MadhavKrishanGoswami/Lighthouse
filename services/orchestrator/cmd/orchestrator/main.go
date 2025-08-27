@@ -71,7 +71,8 @@ func main() {
 	log.Println("HostAgentService registered.")
 
 	// -----starting cron job for monitoring-----
-	go monitor.CronMonitor(1, registryMonitorClient, queries)
+	// go monitor.CronMonitor(1, registryMonitorClient, queries, agentServer)
+	_, err = monitor.ChecckForUpdates(ctx, registryMonitorClient, queries)
 
 	// --- 6. Server Start & Graceful Shutdown ---
 	// Start the server in a background goroutine so it doesn't block.

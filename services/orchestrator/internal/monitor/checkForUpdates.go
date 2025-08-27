@@ -10,7 +10,7 @@ import (
 	db "github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/db/sqlc"
 )
 
-func ChecckForUpdates(ctx context.Context, grpcClient registry_monitor.RegistryMonitorServiceClient, queries *db.Queries) error {
+func ChecckForUpdates(ctx context.Context, grpcClient registry_monitor.RegistryMonitorServiceClient, queries *db.Queries) (registry_monitor.CheckUpdatesResponse, error) {
 	// Get containers from the database where watchlist is true
 	containers, err := queries.GetallContainersWhereWatched(ctx)
 	if err != nil {
@@ -18,7 +18,7 @@ func ChecckForUpdates(ctx context.Context, grpcClient registry_monitor.RegistryM
 	}
 	if len(containers) == 0 {
 		log.Println("No containers found in the watchlist.")
-		return nil
+		return registry_monitor.CheckUpdatesResponse{}, nil
 	}
 	// Send containers to the registry monitor service
 	var containerInfos []*registry_monitor.ImageInfo
@@ -47,12 +47,13 @@ func ChecckForUpdates(ctx context.Context, grpcClient registry_monitor.RegistryM
 	req := &registry_monitor.CheckUpdatesRequest{
 		Images: containerInfos,
 	}
+	log.Printf("Checking for updates for %d containers in the watchlist.", len(containerInfos))
 	resp, err := grpcClient.CheckUpdates(ctx, req)
 	if err != nil {
 		log.Printf("Failed to update watchlist in registry monitor: %v", err)
-		return err
+		return registry_monitor.CheckUpdatesResponse{}, err
 	}
 
 	log.Printf("containers to update: %v", resp.ImagestoUpdate)
-	return nil
+	return *resp, nil
 }
