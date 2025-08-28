@@ -3,32 +3,35 @@ package client
 
 import (
 	"log"
+	"time"
 
 	orchestrator "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/host-agents"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// StartClient tries to connect to the gRPC server and waits until it's available.
+
+// StartClient waits for the server to be ready using the new grpc.NewClient API.
 func StartClient() (orchestrator.HostAgentServiceClient, *grpc.ClientConn, error) {
-	// This function will be used to start the gRPC client
-	// It will connect to the server and perform operations
+	addr := "localhost:50051"
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
-	conn, err := grpc.NewClient("localhost:50051", opts...)
-	if err != nil {
-		log.Fatalf("did not connect: %v", err)
-		return nil, nil, err
+
+	var conn *grpc.ClientConn
+	var err error
+
+	for {
+		conn, err = grpc.NewClient(addr, opts...)
+		if err == nil {
+			break
+		}
+		log.Printf("Waiting for gRPC server at %s... retrying in 2s", addr)
+		time.Sleep(2 * time.Second)
 	}
 
-	// check if the connection is successful
 	client := orchestrator.NewHostAgentServiceClient(conn)
-	if client == nil {
-		log.Fatalf("failed to create client: %v", err)
-		return nil, nil, err
-	}
-	log.Println("gRPC client connected to orchestrator at localhost:50051")
-
-	// Return the client to be used for further operations
+	log.Printf("gRPC client connected to orchestrator at %s", addr)
 	return client, conn, nil
 }

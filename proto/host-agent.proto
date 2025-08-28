@@ -51,7 +51,7 @@ message HeartbeatResponse {
 
 message UpdateContainerCommand {
   string deploymentID = 1;
-  string containerID = 2;              // which container to update
+  string containerUID = 2;              // which container to update
   string image = 3;                    // target image (repo:tag or digest)
   repeated string overrideEnvVars = 4; // optional overrides
   repeated string overridePorts = 5;
@@ -62,7 +62,7 @@ message UpdateContainerCommand {
 
 message UpdateStatus {
   string deploymentID = 1;
-  string containerID = 2;
+  string containerUID = 2;
   string mac_address = 6; // target host
   enum Stage {
     UNKNOWN = 0;

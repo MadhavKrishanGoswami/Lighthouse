@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -14,67 +15,81 @@ import (
 )
 
 func main() {
-	// This is the main entry point for the application.
-	// The actual functionality is implemented in the agent package.
-	// You can start the agent, monitor containers, or register with an orchestrator here.
-
+	// --- 1. Start gRPC client and wait until orchestrator server is ready ---
 	gRPCClient, clientConn, err := client.StartClient()
 	if err != nil {
-		panic(err)
+		log.Fatalf("Failed to start gRPC client: %v", err)
 	}
 	defer func() {
 		if clientConn != nil {
 			if err := clientConn.Close(); err != nil {
-				log.Printf("failed to close gRPC client connection: %v", err)
+				log.Printf("Failed to close gRPC client connection: %v", err)
 			} else {
 				log.Println("gRPC client connection closed successfully")
 			}
 		}
 	}()
+	log.Println("gRPC client connected to orchestrator.")
 
+	// --- 2. Docker client setup ---
+	cli, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv, dockerclient.WithAPIVersionNegotiation())
+	if err != nil {
+		log.Fatalf("Failed to create Docker client: %v", err)
+	}
+	defer cli.Close()
+
+	// --- 3. Context for all goroutines ---
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cli, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv, dockerclient.WithAPIVersionNegotiation())
-	if err != nil {
-		panic(err)
+	// --- 4. Register agent with orchestrator ---
+	regCtx, regCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer regCancel()
+	if err := agent.RegisterAgent(cli, regCtx, gRPCClient); err != nil {
+		log.Fatalf("Failed to register agent: %v", err)
 	}
-	defer cli.Close()
-	// Register the agent with the orchestrator
+	log.Println("Agent registered successfully with orchestrator.")
 
-	if err := agent.RegisterAgent(cli, ctx, gRPCClient); err != nil {
-		log.Fatalf("failed to register agent: %v", err)
-	}
-	log.Println("Agent registered successfully with the orchestrator")
+	// --- 5. WaitGroup for goroutines ---
+	var wg sync.WaitGroup
 
-	// Start Heart Brate to send periodic updates to the orchestrator
+	// --- 6. Heartbeat goroutine ---
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
 				if err := agent.Heartbeat(cli, ctx, gRPCClient); err != nil {
-					log.Printf("failed to send heartbeat: %v", err)
+					log.Printf("Failed to send heartbeat: %v", err)
 				} else {
-					log.Println("Heartbeat sent successfully")
+					log.Println("Heartbeat sent successfully.")
 				}
 			case <-ctx.Done():
-				log.Println("Stopping heartbeat loop")
+				log.Println("Stopping heartbeat loop.")
 				return
 			}
 		}
 	}()
-	// Start UpdateContainer gRPC stream
+
+	// --- 7. UpdateContainer gRPC stream goroutine ---
+	wg.Add(1)
 	go func() {
-		if err := agent.UpdateContainerStream(cli, ctx, gRPCClient); err != nil {
-			log.Printf("failed to start UpdateContainer stream: %v", err)
+		defer wg.Done()
+		if err := agent.UpdateContainerStream(cli, ctx, gRPCClient); err != nil && ctx.Err() == nil {
+			log.Printf("Failed to start UpdateContainer stream: %v", err)
 		}
 	}()
 
-	// Wait for a termination signal (e.g., Ctrl+C) to gracefully shut Down the agent
+	// --- 8. Handle OS signals for graceful shutdown ---
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+
 	<-sigCh
 	log.Println("Termination signal received. Shutting down gracefully...")
+	cancel()  // cancel context to stop goroutines
+	wg.Wait() // wait for all goroutines to finish
+	log.Println("All goroutines stopped. Agent shutdown complete.")
 }

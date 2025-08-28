@@ -18,7 +18,7 @@ import (
 const (
 	dockerAuthURL     = "https://auth.docker.io/token?service=registry.docker.io&scope=repository:%s:pull"
 	dockerRegistryURL = "https://registry-1.docker.io/v2/%s/manifests/%s"
-	cacheTTL          = 10 * time.Minute // Cache results for 5 minutes.
+	cacheTTL          = 30 * time.Minute // Cache results for 5 minutes.
 )
 
 // authResponse stores the token from the Docker auth server.
@@ -73,8 +73,6 @@ func getLatestDigest(repository, token string) (string, error) {
 	// --- Step 1: Check the cache first ---
 	cacheMutex.Lock()
 	cached, found := digestCache[repository]
-	cacheMutex.Unlock()
-
 	// if found but expired then just delete it
 	if found && !time.Now().Before(cached.expiresAt) {
 		// ...delete it and pretend it wasn't found.

@@ -51,7 +51,7 @@ sqlc/orchestrator:
 
 make-db:
 	@echo "Setting up the database"
-	postgres
-	createdb
-	migrate-up
+	make postgres
+	make createdb
+	make migrate-up
 

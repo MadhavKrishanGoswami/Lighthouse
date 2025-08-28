@@ -43,16 +43,18 @@ CREATE TABLE containers (
   created_at timestamptz DEFAULT now()
 );
 
+
 -- 4. Deployments table
 CREATE TABLE deployments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   container_id uuid NOT NULL,
   host_id uuid NOT NULL,
   target_image varchar NOT NULL,
-  configuration text,
   status deployment_status NOT NULL DEFAULT 'pending',
-  created_at timestamptz DEFAULT now()
+  created_at timestamptz DEFAULT now(),
+  CONSTRAINT deployments_container_host_unique UNIQUE (container_id, host_id)
 );
+
 
 -- 5. Update status table
 CREATE TABLE update_status (

@@ -30,7 +30,7 @@ func UpdateContainerStream(cli *dockerclient.Client, ctx context.Context, gRPCCl
 	// Step 1: send dummy registration update
 	err = stream.Send(&orchestrator.UpdateStatus{
 		DeploymentID: "init-deployment",
-		ContainerID:  "init-container",
+		ContainerUID: "init-container",
 		MacAddress:   agentID,
 		Stage:        orchestrator.UpdateStatus_COMPLETED,
 		Logs:         "Agent connected",
@@ -61,12 +61,12 @@ func UpdateContainerStream(cli *dockerclient.Client, ctx context.Context, gRPCCl
 				log.Printf("Received command: %+v", cmd)
 
 				// Simulate container update work
-				time.Sleep(2 * time.Second)
+				time.Sleep(3 * time.Second)
 
 				// Step 3: Send back status after executing command
 				err = stream.Send(&orchestrator.UpdateStatus{
 					DeploymentID: cmd.DeploymentID,
-					ContainerID:  cmd.ContainerID,
+					ContainerUID: cmd.ContainerUID,
 					MacAddress:   agentID,
 					Stage:        orchestrator.UpdateStatus_COMPLETED,
 					Logs:         "Container updated successfully",

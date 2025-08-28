@@ -70,10 +70,6 @@ func main() {
 	agentpb.RegisterHostAgentServiceServer(grpcServer, agentServer)
 	log.Println("HostAgentService registered.")
 
-	// -----starting cron job for monitoring-----
-	// go monitor.CronMonitor(1, registryMonitorClient, queries, agentServer)
-	_, err = monitor.ChecckForUpdates(ctx, registryMonitorClient, queries)
-
 	// --- 6. Server Start & Graceful Shutdown ---
 	// Start the server in a background goroutine so it doesn't block.
 	go func() {
@@ -82,7 +78,9 @@ func main() {
 			log.Fatalf("Failed to serve gRPC server: %v", err)
 		}
 	}()
-
+	// -----starting cron job for monitoring after host agentserver is connected-----
+	go monitor.CronMonitor(1, registryMonitorClient, queries, agentServer)
+	log.Println("Started cron job for monitoring container updates.")
 	if err != nil {
 		log.Printf("Error checking for updates: %v", err)
 	}

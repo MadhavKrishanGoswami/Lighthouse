@@ -3,7 +3,6 @@ package agentserver
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"sync"
 
@@ -165,17 +164,4 @@ func (s *Server) ConnectAgentStream(stream orchestrator.HostAgentService_Connect
 		}
 		log.Printf("Received status from %s: %+v", agentID, msg.Stage)
 	}
-}
-
-// SendCommand sends a command to a specific agent from ANYWHERE in your code
-func (s *Server) SendUpdateCommand(agentID string, cmd *orchestrator.UpdateContainerCommand) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	stream, ok := s.Hosts[agentID]
-	if !ok {
-		return fmt.Errorf("agent %s not connected", agentID)
-	}
-
-	return stream.Send(cmd)
 }

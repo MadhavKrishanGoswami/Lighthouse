@@ -123,11 +123,10 @@ type Deployment struct {
 	ID          pgtype.UUID `json:"id"`
 	ContainerID pgtype.UUID `json:"container_id"`
 	// FK → hosts.id. Deployment tied to a host.
-	HostID        pgtype.UUID        `json:"host_id"`
-	TargetImage   string             `json:"target_image"`
-	Configuration pgtype.Text        `json:"configuration"`
-	Status        DeploymentStatus   `json:"status"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	HostID      pgtype.UUID        `json:"host_id"`
+	TargetImage string             `json:"target_image"`
+	Status      DeploymentStatus   `json:"status"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 type Host struct {

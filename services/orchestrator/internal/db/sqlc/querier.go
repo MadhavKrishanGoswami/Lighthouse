@@ -15,12 +15,18 @@ type Querier interface {
 	DeleteStaleContainersForHost(ctx context.Context, arg DeleteStaleContainersForHostParams) error
 	// Retrieves a host by its mac_address.
 	GertHostByMacAddress(ctx context.Context, macAddress string) (Host, error)
-	// Retrieves the MAC address of the host associated with a given container UID.
-	GetMacAddressByContainerUID(ctx context.Context, containerUid string) (string, error)
+	// Retrieves a container by its UID
+	GetContainerbyContainerUID(ctx context.Context, containerUid string) (Container, error)
+	// Retrieves the host associated with a given container UID
+	GetHostbyContainerUID(ctx context.Context, containerUid string) (Host, error)
 	// Retrieves all containers where watched is true
 	GetallContainersWhereWatched(ctx context.Context) ([]Container, error)
 	// Inserts or updates container based on container_uid
 	InsertContainer(ctx context.Context, arg InsertContainerParams) (Container, error)
+	// Inserts a deployment for a container on a host.
+	// If a deployment already exists for the same container+host and is still pending/running,
+	// do NOT overwrite it; otherwise, update target_image and status.
+	InsertDeployment(ctx context.Context, arg InsertDeploymentParams) (Deployment, error)
 	// Inserts a new host or updates an existing one based on the MAC address.
 	InsertHost(ctx context.Context, arg InsertHostParams) (Host, error)
 	// Updates the last heartbeat timestamp for a host identified by id.

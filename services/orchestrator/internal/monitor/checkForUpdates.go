@@ -10,7 +10,7 @@ import (
 	db "github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/db/sqlc"
 )
 
-func ChecckForUpdates(ctx context.Context, grpcClient registry_monitor.RegistryMonitorServiceClient, queries *db.Queries) (registry_monitor.CheckUpdatesResponse, error) {
+func CheckForUpdates(ctx context.Context, grpcClient registry_monitor.RegistryMonitorServiceClient, queries *db.Queries) (registry_monitor.CheckUpdatesResponse, error) {
 	// Get containers from the database where watchlist is true
 	containers, err := queries.GetallContainersWhereWatched(ctx)
 	if err != nil {
