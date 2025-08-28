@@ -11,7 +11,7 @@ import (
 
 	"github.com/MadhavKrishanGoswami/Lighthouse/services/host-agent/internal/agent"
 	"github.com/MadhavKrishanGoswami/Lighthouse/services/host-agent/internal/client"
-	dockerclient "github.com/moby/moby/client"
+	dockerclient "github.com/docker/docker/client"
 )
 
 func main() {

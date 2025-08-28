@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	host_agent "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/host-agents"
-	"github.com/moby/moby/api/types/container"
-	dockerclient "github.com/moby/moby/client"
+	"github.com/docker/docker/api/types/container"
+	dockerclient "github.com/docker/docker/client"
 )
 
 func RegisterAgent(cli *dockerclient.Client, ctx context.Context, gRPCClient host_agent.HostAgentServiceClient) error {

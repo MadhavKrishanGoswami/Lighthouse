@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	host_agent "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/host-agents"
-	"github.com/moby/moby/api/types/container"
-	dockerclient "github.com/moby/moby/client"
+	"github.com/docker/docker/api/types/container"
+	dockerclient "github.com/docker/docker/client"
 )
 
 func Heartbeat(cli *dockerclient.Client, ctx context.Context, gRPCClient host_agent.HostAgentServiceClient) error {
@@ -24,6 +24,7 @@ func Heartbeat(cli *dockerclient.Client, ctx context.Context, gRPCClient host_ag
 	}
 	var containers []*host_agent.ContainerInfo
 
+	// Iterate through each container and inspect it for full details
 	// Iterate through each container and inspect it for full details
 	for _, c := range containersList {
 		inspect, err := cli.ContainerInspect(ctx, c.ID)
@@ -59,7 +60,6 @@ func Heartbeat(cli *dockerclient.Client, ctx context.Context, gRPCClient host_ag
 			ContainerID: c.ID,
 			Name:        strings.TrimPrefix(inspect.Name, "/"),
 			Image:       inspect.Config.Image,
-			Digest:      inspect.Image,
 			Ports:       ports,
 			EnvVars:     envVars,
 			Volumes:     volumes,
