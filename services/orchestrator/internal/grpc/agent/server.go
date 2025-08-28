@@ -152,7 +152,7 @@ func (s *Server) ConnectAgentStream(stream orchestrator.HostAgentService_Connect
 	s.Hosts[agentID] = stream
 	s.mu.Unlock()
 
-	// Keep reading for messages from agent (like UpdateStatus)
+	// Keep reading for messages from agent (like UpdateStatus) and update DB accordingly
 	for {
 		msg, err := stream.Recv()
 		if err != nil {
@@ -162,6 +162,8 @@ func (s *Server) ConnectAgentStream(stream orchestrator.HostAgentService_Connect
 			s.mu.Unlock()
 			return err
 		}
-		log.Printf("Received status from %s: %+v", agentID, msg.Stage)
+		log.Printf("Received message from agent %s: %+v", agentID, msg)
+		// Here you can process UpdateStatus messages and update the database
+		// For example, update the status of the deployment/container in the db
 	}
 }

@@ -72,6 +72,7 @@ message UpdateStatus {
     COMPLETED = 4;
     ROLLBACK = 5;
     FAILED = 6;
+    RUNNING = 7;
   }
 
   Stage stage = 3;

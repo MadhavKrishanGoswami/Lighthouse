@@ -164,7 +164,7 @@ func Monitor(checkforupdates *registry_monitor.CheckUpdatesRequest) (*registry_m
 				log.Printf("INFO: Update found for %s. Current: %s, Latest: %s", repoName, img.Digest, latestDigest)
 				updates <- &registry_monitor.ImagetoUpdate{
 					ContainerUid: img.ContainerUid,
-					NewTag:       "latest", // The new tag is simply "latest".
+					NewTag:       fmt.Sprintf("%s:latest", img.Repository),
 					Description:  fmt.Sprintf("Update available for %s. New digest: %s", img.Repository, latestDigest),
 					Timestamp:    time.Now().Unix(),
 				}
