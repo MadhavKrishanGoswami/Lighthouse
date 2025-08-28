@@ -13,7 +13,7 @@ DO UPDATE SET
   ip_address = EXCLUDED.ip_address
 RETURNING *;
 
--- name: GertHostByMacAddress :one
+-- name: GetHostByMacAddress :one
 -- Retrieves a host by its mac_address.
 SELECT * FROM hosts WHERE mac_address = $1;
 

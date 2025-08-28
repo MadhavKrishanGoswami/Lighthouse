@@ -27,6 +27,10 @@ func NewServer(queries *db.Queries) *Server {
 }
 
 func (s *Server) RegisterHost(ctx context.Context, req *orchestrator.RegisterHostRequest) (*orchestrator.RegisterHostResponse, error) {
+	if req == nil || req.Host == nil {
+		return &orchestrator.RegisterHostResponse{Success: false, Message: "invalid request: host is nil"}, nil
+	}
+
 	// Implement the logic to register a host here
 	log.Printf("Received request to register host: %s", req.Host.Hostname+" with IP: "+req.Host.IpAddress)
 
@@ -61,17 +65,17 @@ func (s *Server) RegisterHost(ctx context.Context, req *orchestrator.RegisterHos
 			log.Printf("Failed to register container: %v", err)
 		}
 	}
-	log.Printf("Host registered successfully with ID: %s", host.IpAddress)
+	log.Printf("Host registered successfully with IP: %s", host.IpAddress)
 	return &orchestrator.RegisterHostResponse{
 		Success: true,
-		Message: "Host registered successfully with ID: " + string(host.IpAddress),
+		Message: "Host registered successfully with IP: " + host.IpAddress,
 	}, nil
 }
 
 func (s *Server) Heartbeat(ctx context.Context, req *orchestrator.HeartbeatRequest) (*orchestrator.HeartbeatResponse, error) {
 	log.Printf("Received heartbeat from host: %s", req.MacAddress)
 
-	host, err := s.db.GertHostByMacAddress(ctx, req.MacAddress)
+	host, err := s.db.GetHostByMacAddress(ctx, req.MacAddress)
 	if err != nil {
 		log.Printf("Failed to get host by MAC address: %v", err)
 		return &orchestrator.HeartbeatResponse{
@@ -89,7 +93,7 @@ func (s *Server) Heartbeat(ctx context.Context, req *orchestrator.HeartbeatReque
 
 	// --- NEW: Step 1 - Collect all active container UIDs from the request ---
 	// We'll use this list later to determine which containers are stale.
-	var activeContainerUIDs []string
+	activeContainerUIDs := make([]string, 0, len(req.Containers))
 	for _, container := range req.Containers {
 		activeContainerUIDs = append(activeContainerUIDs, container.ContainerID)
 	}
@@ -121,7 +125,14 @@ func (s *Server) Heartbeat(ctx context.Context, req *orchestrator.HeartbeatReque
 		HostID:  host.ID,
 		Column2: activeContainerUIDs,
 	}
-	err = s.db.DeleteStaleContainersForHost(ctx, deleteParams)
+	// Skip deletion if no active containers reported (avoid deleting everything when agent temporarily reports none)
+	if len(activeContainerUIDs) > 0 {
+		err = s.db.DeleteStaleContainersForHost(ctx, deleteParams)
+		if err != nil {
+			log.Printf("Failed to delete stale containers: %v", err)
+			return &orchestrator.HeartbeatResponse{Success: false, Message: "Heartbeat processed, but failed to clean up stale containers: " + err.Error()}, nil
+		}
+	}
 	if err != nil {
 		log.Printf("Failed to delete stale containers: %v", err)
 		// This is a significant issue, but the main heartbeat has been processed.
@@ -154,6 +165,15 @@ func (s *Server) ConnectAgentStream(stream orchestrator.HostAgentService_Connect
 
 	// Keep reading for messages from agent (like UpdateStatus) and update DB accordingly
 	for {
+		select {
+		case <-stream.Context().Done():
+			log.Printf("stream context done for agent %s: %v", agentID, stream.Context().Err())
+			s.mu.Lock()
+			delete(s.Hosts, agentID)
+			s.mu.Unlock()
+			return stream.Context().Err()
+		default:
+		}
 		msg, err := stream.Recv()
 		if err != nil {
 			log.Printf("stream closed from agent %s: %v", agentID, err)
