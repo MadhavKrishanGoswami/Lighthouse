@@ -1,27 +1,25 @@
 -- name: InsertContainer :one
--- Inserts or updates container based on container_uid
 INSERT INTO containers (
   container_uid,
   host_id,
   name,
   image,
-  digest,
   ports,
   env_vars,
   volumes,
   network
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (container_uid)
 DO UPDATE SET
   host_id = EXCLUDED.host_id,
   name = EXCLUDED.name,
   image = EXCLUDED.image,
-  digest = EXCLUDED.digest,
   ports = EXCLUDED.ports,
   env_vars = EXCLUDED.env_vars,
   volumes = EXCLUDED.volumes,
   network = EXCLUDED.network
 RETURNING *;
+
 -- name: DeleteStaleContainersForHost :exec
 -- Deletes containers for a given host that are not in the provided list of UIDs.
 DELETE FROM containers

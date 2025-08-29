@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
+	"strings"
 	"time"
 
 	orchestrator "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/host-agents"
@@ -29,46 +31,74 @@ func CronMonitor(timeinmin int, grpcClient registry_monitor.RegistryMonitorServi
 				continue
 			}
 			if len(toUpdateContainers.ImagestoUpdate) > 0 {
-				// Itrate over all the images to update find the host with he container uid and send the update command to that host
 				for _, image := range toUpdateContainers.ImagestoUpdate {
+					// Get the host where this container is running
 					host, err := queries.GetHostbyContainerUID(ctx, image.ContainerUid)
 					if err != nil {
 						fmt.Printf("Error getting host ID for container UID %s: %v\n", image.ContainerUid, err)
 						continue
 					}
+
+					// Get container details from DB
 					container, err := queries.GetContainerbyContainerUID(ctx, image.ContainerUid)
 					if err != nil {
 						fmt.Printf("Error getting container by UID %s: %v\n", image.ContainerUid, err)
 						continue
 					}
+
 					log.Printf("Sending update command to host %s for container UID %s\n", host.ID, image.ContainerUid)
-					// Save data to deployment table
-					deplayment, err := queries.InsertDeployment(ctx, db.InsertDeploymentParams{
-						ContainerID: container.ID,
-						HostID:      host.ID,
-						TargetImage: image.NewTag,
-						Status:      db.DeploymentStatusPending,
-					})
-					if err != nil {
-						fmt.Printf("Error inserting deployment record for container UID %s: %v\n", image.ContainerUid, err)
-						continue
-					}
+
 					hostStream, ok := agentServer.Hosts[host.MacAddress]
 					if !ok {
 						fmt.Printf("No active stream found for host %s\n", host.ID)
 						continue
 					}
+
+					// Convert DB stored ports ([]string) into []*orchestrator.PortMapping
+					var overridePorts []*orchestrator.PortMapping
+					for _, p := range container.Ports {
+						// expected format from DB: "hostIP:hostPort->containerPort/protocol"
+						parts := strings.Split(p, "->")
+						if len(parts) != 2 {
+							continue
+						}
+						// Left side = hostIP:hostPort
+						hostParts := strings.Split(parts[0], ":")
+						if len(hostParts) != 2 {
+							continue
+						}
+						hostIP := hostParts[0]
+						hostPort, _ := strconv.Atoi(hostParts[1])
+
+						// Right side = containerPort/protocol
+						containerParts := strings.Split(parts[1], "/")
+						if len(containerParts) != 2 {
+							continue
+						}
+						containerPort, _ := strconv.Atoi(containerParts[0])
+						protocol := containerParts[1]
+
+						overridePorts = append(overridePorts, &orchestrator.PortMapping{
+							HostIp:        hostIP,
+							HostPort:      uint32(hostPort),
+							ContainerPort: uint32(containerPort),
+							Protocol:      protocol,
+						})
+					}
+
+					// Build update command
 					cmd := orchestrator.UpdateContainerCommand{
-						DeploymentID:    deplayment.ID.String(),
 						ContainerUID:    image.ContainerUid,
 						Image:           image.NewTag,
 						OverrideEnvVars: container.EnvVars,
-						OverridePorts:   container.Ports,
+						OverridePorts:   overridePorts,
 						OverrideVolumes: container.Volumes,
 						OverrideNetwork: container.Network.String,
 						MacAddress:      host.MacAddress, // target host MAC
 					}
-					if err := hostStream.Send(&cmd); err != nil {
+
+					// Send update command
+					if err := hostStream.Stream.Send(&cmd); err != nil {
 						fmt.Printf("Error sending update command to host %s: %v\n", host.ID, err)
 						continue
 					}

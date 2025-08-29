@@ -11,13 +11,13 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const gertHostByMacAddress = `-- name: GertHostByMacAddress :one
+const getHostByMacAddress = `-- name: GetHostByMacAddress :one
 SELECT id, mac_address, hostname, ip_address, last_heartbeat, created_at FROM hosts WHERE mac_address = $1
 `
 
 // Retrieves a host by its mac_address.
-func (q *Queries) GertHostByMacAddress(ctx context.Context, macAddress string) (Host, error) {
-	row := q.db.QueryRow(ctx, gertHostByMacAddress, macAddress)
+func (q *Queries) GetHostByMacAddress(ctx context.Context, macAddress string) (Host, error) {
+	row := q.db.QueryRow(ctx, getHostByMacAddress, macAddress)
 	var i Host
 	err := row.Scan(
 		&i.ID,

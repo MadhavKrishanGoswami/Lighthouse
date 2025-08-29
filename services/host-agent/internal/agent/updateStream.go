@@ -29,12 +29,12 @@ func UpdateContainerStream(cli *dockerclient.Client, ctx context.Context, gRPCCl
 
 	// Step 1: send dummy registration update
 	err = stream.Send(&orchestrator.UpdateStatus{
-		DeploymentID: "init-deployment",
 		ContainerUID: "init-container",
 		MacAddress:   agentID,
 		Stage:        orchestrator.UpdateStatus_COMPLETED,
 		Logs:         "Agent connected",
 		Timestamp:    time.Now().String(),
+		Image:        "init-image",
 	})
 	if err != nil {
 		return err

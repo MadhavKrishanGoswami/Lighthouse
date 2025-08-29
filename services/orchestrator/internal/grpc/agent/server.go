@@ -1,9 +1,11 @@
-// Package agentserver provides a gRPC server implementation for handling requests.
 package agentserver
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log"
+	"strings"
 	"sync"
 
 	orchestrator "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/host-agents"
@@ -11,179 +13,230 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type Server struct {
-	orchestrator.UnimplementedHostAgentServiceServer
-	db *db.Queries // Database queries instance
-	mu sync.Mutex
-
-	Hosts map[string]orchestrator.HostAgentService_ConnectAgentStreamServer
+// AgentConnection holds the stream and a dedicated channel for safely sending commands.
+type AgentConnection struct {
+	Stream      orchestrator.HostAgentService_ConnectAgentStreamServer
+	CommandChan chan *orchestrator.UpdateContainerCommand
+	done        chan struct{}
 }
 
+// Server is the main gRPC server structure.
+type Server struct {
+	orchestrator.UnimplementedHostAgentServiceServer
+	DB    *db.Queries
+	Mu    sync.RWMutex
+	Hosts map[string]*AgentConnection
+}
+
+// NewServer creates a new instance of the gRPC server.
 func NewServer(queries *db.Queries) *Server {
 	return &Server{
-		db:    queries, // Initialize the database queries instance
-		Hosts: make(map[string]orchestrator.HostAgentService_ConnectAgentStreamServer),
+		DB:    queries,
+		Hosts: make(map[string]*AgentConnection),
 	}
 }
 
+// SendCommand sends a command to a connected agent safely.
+func (s *Server) SendCommand(agentID string, cmd *orchestrator.UpdateContainerCommand) error {
+	s.Mu.RLock()
+	conn, ok := s.Hosts[agentID]
+	s.Mu.RUnlock()
+	if !ok {
+		return fmt.Errorf("agent %s not connected or disconnected", agentID)
+	}
+
+	select {
+	case conn.CommandChan <- cmd:
+		log.Printf("Queued command for agent %s: update image to %s", agentID, cmd.Image)
+		return nil
+	case <-conn.done:
+		return fmt.Errorf("agent %s disconnected, cannot send command", agentID)
+	}
+}
+
+// RegisterHost handles initial registration of a host and its containers.
 func (s *Server) RegisterHost(ctx context.Context, req *orchestrator.RegisterHostRequest) (*orchestrator.RegisterHostResponse, error) {
 	if req == nil || req.Host == nil {
 		return &orchestrator.RegisterHostResponse{Success: false, Message: "invalid request: host is nil"}, nil
 	}
 
-	// Implement the logic to register a host here
-	log.Printf("Received request to register host: %s", req.Host.Hostname+" with IP: "+req.Host.IpAddress)
+	log.Printf("Received host registration: %s (%s)", req.Host.Hostname, req.Host.IpAddress)
 
 	params := db.InsertHostParams{
 		MacAddress: req.Host.MacAddress,
 		Hostname:   req.Host.Hostname,
 		IpAddress:  req.Host.IpAddress,
 	}
-	host, err := s.db.InsertHost(ctx, params)
+	host, err := s.DB.InsertHost(ctx, params)
 	if err != nil {
 		log.Printf("Failed to register host: %v", err)
-		return &orchestrator.RegisterHostResponse{
-			Success: false,
-			Message: "Failed to register host in the database with error: " + err.Error(),
-		}, nil
+		return &orchestrator.RegisterHostResponse{Success: false, Message: err.Error()}, nil
 	}
+
 	for _, container := range req.Host.Containers {
-		log.Printf("Container: %v", container)
 		containerParams := db.InsertContainerParams{
 			ContainerUid: container.ContainerID,
 			HostID:       host.ID,
 			Name:         container.Name,
 			Image:        container.Image,
-			Digest:       container.Digest,
-			Ports:        container.Ports,
+			Ports:        convertPortsToDBFormat(container.Ports),
 			EnvVars:      container.EnvVars,
 			Volumes:      container.Volumes,
 			Network:      pgtype.Text{String: container.Network, Valid: true},
 		}
-		_, err := s.db.InsertContainer(ctx, containerParams)
-		if err != nil {
-			log.Printf("Failed to register container: %v", err)
+		if _, err := s.DB.InsertContainer(ctx, containerParams); err != nil {
+			log.Printf("Failed to register container %s: %v", container.Name, err)
 		}
 	}
-	log.Printf("Host registered successfully with IP: %s", host.IpAddress)
+
 	return &orchestrator.RegisterHostResponse{
 		Success: true,
-		Message: "Host registered successfully with IP: " + host.IpAddress,
+		Message: "Host registered successfully",
 	}, nil
 }
 
+// Heartbeat processes periodic updates from agents.
 func (s *Server) Heartbeat(ctx context.Context, req *orchestrator.HeartbeatRequest) (*orchestrator.HeartbeatResponse, error) {
 	log.Printf("Received heartbeat from host: %s", req.MacAddress)
-
-	host, err := s.db.GetHostByMacAddress(ctx, req.MacAddress)
+	host, err := s.DB.GetHostByMacAddress(ctx, req.MacAddress)
 	if err != nil {
-		log.Printf("Failed to get host by MAC address: %v", err)
-		return &orchestrator.HeartbeatResponse{
-			Success: false,
-			Message: "Failed to get host by MAC address: " + err.Error(),
-		}, nil
+		return &orchestrator.HeartbeatResponse{Success: false, Message: err.Error()}, nil
 	}
 
-	// Update last heartbeat timestamp
-	_, err = s.db.UpdateHostLastHeartbeat(ctx, host.ID)
-	if err != nil {
-		log.Printf("Failed to update host last heartbeat: %v", err)
-		// Non-critical error, we can continue processing containers
+	if _, err := s.DB.UpdateHostLastHeartbeat(ctx, host.ID); err != nil {
+		log.Printf("Failed to update heartbeat: %v", err)
 	}
 
-	// --- NEW: Step 1 - Collect all active container UIDs from the request ---
-	// We'll use this list later to determine which containers are stale.
 	activeContainerUIDs := make([]string, 0, len(req.Containers))
-	for _, container := range req.Containers {
-		activeContainerUIDs = append(activeContainerUIDs, container.ContainerID)
-	}
-
-	// Upsert all containers from the current heartbeat
-	for _, container := range req.Containers {
+	for _, c := range req.Containers {
+		activeContainerUIDs = append(activeContainerUIDs, c.ContainerID)
 		containerParams := db.InsertContainerParams{
-			ContainerUid: container.ContainerID,
+			ContainerUid: c.ContainerID,
 			HostID:       host.ID,
-			Name:         container.Name,
-			Image:        container.Image,
-			Digest:       container.Digest,
-			Ports:        container.Ports,
-			EnvVars:      container.EnvVars,
-			Volumes:      container.Volumes,
-			Network:      pgtype.Text{String: container.Network, Valid: true},
+			Name:         c.Name,
+			Image:        c.Image,
+			Ports:        convertPortsToDBFormat(c.Ports),
+			EnvVars:      c.EnvVars,
+			Volumes:      c.Volumes,
+			Network:      pgtype.Text{String: c.Network, Valid: true},
 		}
-		_, err := s.db.InsertContainer(ctx, containerParams)
-		if err != nil {
-			// Log the error but continue trying to process other containers
-			log.Printf("Failed to upsert container %s: %v", container.Name, err)
+		if _, err := s.DB.InsertContainer(ctx, containerParams); err != nil {
+			log.Printf("Failed to upsert container %s: %v", c.Name, err)
 		}
 	}
 
-	// --- NEW: Step 2 - Delete stale containers for this host ---
-	// If there were no active containers, the slice will be empty, and this will
-	// correctly delete all containers associated with the host.
-	deleteParams := db.DeleteStaleContainersForHostParams{
-		HostID:  host.ID,
-		Column2: activeContainerUIDs,
-	}
-	// Skip deletion if no active containers reported (avoid deleting everything when agent temporarily reports none)
+	// Delete stale containers
 	if len(activeContainerUIDs) > 0 {
-		err = s.db.DeleteStaleContainersForHost(ctx, deleteParams)
-		if err != nil {
+		params := db.DeleteStaleContainersForHostParams{
+			HostID:  host.ID,
+			Column2: activeContainerUIDs,
+		}
+		if err := s.DB.DeleteStaleContainersForHost(ctx, params); err != nil {
 			log.Printf("Failed to delete stale containers: %v", err)
-			return &orchestrator.HeartbeatResponse{Success: false, Message: "Heartbeat processed, but failed to clean up stale containers: " + err.Error()}, nil
+			return &orchestrator.HeartbeatResponse{Success: false, Message: err.Error()}, nil
 		}
 	}
-	if err != nil {
-		log.Printf("Failed to delete stale containers: %v", err)
-		// This is a significant issue, but the main heartbeat has been processed.
-		// You might want to handle this error more robustly.
-		return &orchestrator.HeartbeatResponse{
-			Success: false,
-			Message: "Heartbeat processed, but failed to clean up stale containers: " + err.Error(),
-		}, nil
-	}
 
-	log.Printf("Successfully synced %d containers for host %s", len(activeContainerUIDs), req.MacAddress)
-	return &orchestrator.HeartbeatResponse{
-		Success: true,
-		Message: "Heartbeat received and containers synced successfully",
-	}, nil
+	log.Printf("Synced %d containers for host %s", len(activeContainerUIDs), req.MacAddress)
+	return &orchestrator.HeartbeatResponse{Success: true, Message: "Heartbeat processed successfully"}, nil
 }
 
+// ConnectAgentStream handles bidirectional agent streams.
 func (s *Server) ConnectAgentStream(stream orchestrator.HostAgentService_ConnectAgentStreamServer) error {
 	firstMsg, err := stream.Recv()
 	if err != nil {
-		log.Printf("Failed to receive initial message from stream: %v", err)
 		return err
 	}
-	agentID := firstMsg.MacAddress
-	log.Printf("Agent connected with ID: %s", agentID)
-	// Store the stream in the map with mutex protection
-	s.mu.Lock()
-	s.Hosts[agentID] = stream
-	s.mu.Unlock()
+	agentID := firstMsg.GetMacAddress()
+	if agentID == "" {
+		return fmt.Errorf("empty agent ID")
+	}
 
-	// Keep reading for messages from agent (like UpdateStatus) and update DB accordingly
-	for {
-		select {
-		case <-stream.Context().Done():
-			log.Printf("stream context done for agent %s: %v", agentID, stream.Context().Err())
-			s.mu.Lock()
-			delete(s.Hosts, agentID)
-			s.mu.Unlock()
-			return stream.Context().Err()
-		default:
+	log.Printf("Agent connected: %s", agentID)
+	conn := &AgentConnection{
+		Stream:      stream,
+		CommandChan: make(chan *orchestrator.UpdateContainerCommand, 10),
+		done:        make(chan struct{}),
+	}
+
+	s.Mu.Lock()
+	s.Hosts[agentID] = conn
+	s.Mu.Unlock()
+
+	defer func() {
+		s.Mu.Lock()
+		delete(s.Hosts, agentID)
+		s.Mu.Unlock()
+		close(conn.done)
+		log.Printf("Agent %s disconnected", agentID)
+	}()
+
+	// Write loop
+	go func() {
+		for {
+			select {
+			case cmd := <-conn.CommandChan:
+				if err := stream.Send(cmd); err != nil {
+					log.Printf("Failed to send command to agent %s: %v", agentID, err)
+					return
+				}
+			case <-conn.done:
+				return
+			}
 		}
+	}()
+
+	// Read loop
+	for {
 		msg, err := stream.Recv()
+		if err == io.EOF {
+			log.Printf("Agent %s closed the stream", agentID)
+			return nil
+		}
 		if err != nil {
-			log.Printf("stream closed from agent %s: %v", agentID, err)
-			s.mu.Lock()
-			delete(s.Hosts, agentID)
-			s.mu.Unlock()
 			return err
 		}
-		log.Printf("Received message from agent %s: %+v", agentID, msg)
-		// Here you can process UpdateStatus messages and update the database
-		// For example, update the status of the deployment/container in the db
+
+		status := msg.GetStage()
+		host, _ := s.DB.GetHostByMacAddress(context.Background(), agentID)
+
+		_, err = s.DB.InsertUpdateStatus(context.Background(), db.InsertUpdateStatusParams{
+			HostID: host.ID,
+			Stage:  grpcenumtodbstatus(status),
+			Logs:   pgtype.Text{String: strings.TrimSpace(msg.GetLogs()), Valid: true},
+			Image:  msg.Image,
+		})
+		if err != nil {
+			log.Printf("Failed to insert update status: %v", err)
+		}
+	}
+}
+
+// convertPortsToDBFormat converts []*PortMapping to DB-storable []string.
+func convertPortsToDBFormat(ports []*orchestrator.PortMapping) []string {
+	var out []string
+	for _, p := range ports {
+		out = append(out, fmt.Sprintf("%s:%d->%d/%s", p.HostIp, p.HostPort, p.ContainerPort, p.Protocol))
+	}
+	return out
+}
+
+// grpcenumtodbstatus maps gRPC status to DB enum
+func grpcenumtodbstatus(status orchestrator.UpdateStatus_Stage) db.UpdateStage {
+	switch status {
+	case orchestrator.UpdateStatus_STARTING:
+		return db.UpdateStageStarting
+	case orchestrator.UpdateStatus_PULLING:
+		return db.UpdateStagePulling
+	case orchestrator.UpdateStatus_RUNNING:
+		return db.UpdateStageRunning
+	case orchestrator.UpdateStatus_ROLLBACK:
+		return db.UpdateStageRollback
+	case orchestrator.UpdateStatus_COMPLETED:
+		return db.UpdateStageCompleted
+	case orchestrator.UpdateStatus_FAILED, orchestrator.UpdateStatus_UNKNOWN:
+		return db.UpdateStageFailed
+	default:
+		return db.UpdateStageFailed
 	}
 }

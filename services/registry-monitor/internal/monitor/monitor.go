@@ -18,7 +18,7 @@ import (
 const (
 	dockerAuthURL     = "https://auth.docker.io/token?service=registry.docker.io&scope=repository:%s:pull"
 	dockerRegistryURL = "https://registry-1.docker.io/v2/%s/manifests/%s"
-	cacheTTL          = 30 * time.Minute // Cache results for 5 minutes.
+	cacheTTL          = 30 * time.Minute // Cache results for 30 minutes
 )
 
 // authResponse stores the token from the Docker auth server.
@@ -35,7 +35,7 @@ type cachedDigest struct {
 // Global cache and a mutex to prevent race conditions.
 var (
 	digestCache = make(map[string]cachedDigest)
-	cacheMutex  = &sync.Mutex{}
+	cacheMutex  = &sync.RWMutex{} // Use RWMutex for better read performance
 	// Use a shared, configured client for all HTTP requests.
 	httpClient = &http.Client{
 		Timeout: 15 * time.Second,
@@ -71,18 +71,20 @@ func getAuthToken(repository string) (string, error) {
 // It correctly handles multi-arch manifests and falls back to calculating the digest if the header is missing.
 func getLatestDigest(repository, token string) (string, error) {
 	// --- Step 1: Check the cache first ---
-	cacheMutex.Lock()
+	cacheMutex.RLock()
 	cached, found := digestCache[repository]
-	// if found but expired then just delete it
-	if found && !time.Now().Before(cached.expiresAt) {
-		// ...delete it and pretend it wasn't found.
-		delete(digestCache, repository)
-		found = false
-	}
-	cacheMutex.Unlock()
+	cacheMutex.RUnlock()
 
+	// Check if cache entry is valid
 	if found && time.Now().Before(cached.expiresAt) {
 		return cached.digest, nil
+	}
+
+	// Clean up expired entry if found
+	if found && !time.Now().Before(cached.expiresAt) {
+		cacheMutex.Lock()
+		delete(digestCache, repository)
+		cacheMutex.Unlock()
 	}
 
 	// --- Step 2: Fetch the manifest for the "latest" tag ---
@@ -99,7 +101,6 @@ func getLatestDigest(repository, token string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to execute manifest request: %w", err)
 	}
-	// ✅ Correctly defer Body.Close() immediately after checking for a nil response.
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -129,57 +130,142 @@ func getLatestDigest(repository, token string) (string, error) {
 	return latestDigest, nil
 }
 
+// getCurrentDigest fetches the current digest for a specific image tag.
+// This is used when we need to determine the actual digest of a running container.
+func getCurrentDigest(repository, tag, token string) (string, error) {
+	if tag == "" {
+		tag = "latest"
+	}
+
+	manifestURL := fmt.Sprintf(dockerRegistryURL, repository, tag)
+	req, err := http.NewRequest("GET", manifestURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create manifest request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json, application/vnd.docker.distribution.manifest.list.v2+json")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute manifest request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("manifest request for '%s:%s' failed with status: %s", repository, tag, resp.Status)
+	}
+
+	// Get the digest from the header (most reliable)
+	currentDigest := resp.Header.Get("Docker-Content-Digest")
+	if currentDigest == "" {
+		// Fallback: calculate SHA256 of the manifest body
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return "", fmt.Errorf("failed to read manifest body for digest calculation: %w", err)
+		}
+		currentDigest = fmt.Sprintf("sha256:%x", sha256.Sum256(bodyBytes))
+	}
+
+	return currentDigest, nil
+}
+
 // Monitor checks a list of Docker images concurrently to find available updates.
 func Monitor(checkforupdates *registry_monitor.CheckUpdatesRequest) (*registry_monitor.CheckUpdatesResponse, error) {
+	if checkforupdates == nil || len(checkforupdates.Images) == 0 {
+		return &registry_monitor.CheckUpdatesResponse{}, nil
+	}
+
 	var (
-		wg sync.WaitGroup
-		// Use a buffered channel to prevent goroutines from blocking.
-		updates  = make(chan *registry_monitor.ImagetoUpdate, len(checkforupdates.Images))
-		response = &registry_monitor.CheckUpdatesResponse{}
+		wg       sync.WaitGroup
+		mu       sync.Mutex // Protect the slice from concurrent writes
+		response = &registry_monitor.CheckUpdatesResponse{
+			ImagestoUpdate: make([]*registry_monitor.ImagetoUpdate, 0),
+		}
 	)
 
+	// Process images concurrently
 	for _, image := range checkforupdates.Images {
 		wg.Add(1)
 		// Pass the image by value to the goroutine to avoid loop variable capture issues.
 		go func(img *registry_monitor.ImageInfo) {
 			defer wg.Done()
+
+			// Validate input
+			if img == nil || img.Repository == "" {
+				log.Printf("WARN: Skipping invalid image info: %+v", img)
+				return
+			}
+
 			repoName := img.Repository
 			if !strings.Contains(repoName, "/") {
 				repoName = "library/" + repoName
 			}
 
+			// Get auth token
 			token, err := getAuthToken(repoName)
 			if err != nil {
 				log.Printf("ERROR: Could not get auth token for %s: %v", repoName, err)
 				return
 			}
 
+			// Get the most recent digest for the "latest" tag from the registry.
 			latestDigest, err := getLatestDigest(repoName, token)
 			if err != nil {
 				log.Printf("ERROR: Could not get latest digest for %s: %v", repoName, err)
 				return
 			}
 
-			if img.Digest != latestDigest {
-				log.Printf("INFO: Update found for %s. Current: %s, Latest: %s", repoName, img.Digest, latestDigest)
-				updates <- &registry_monitor.ImagetoUpdate{
+			// Determine the current digest of the container.
+			var currentDigest string
+			// The digest was not provided, so we resolve the provided tag to its current digest.
+			log.Printf("DEBUG: Digest not provided for %s. Resolving tag '%s'.", repoName, img.Tag)
+			resolvedDigest, err := getCurrentDigest(repoName, img.Tag, token)
+			if err != nil {
+				log.Printf("ERROR: Could not resolve current digest for %s:%s: %v", repoName, img.Tag, err)
+				return // Cannot proceed without a current digest to compare against.
+			}
+			currentDigest = resolvedDigest
+
+			// Compare digests - ONLY add if there's an actual update
+			if currentDigest != latestDigest {
+				log.Printf("INFO: Update found for %s. Current: %s, Latest: %s",
+					repoName,
+					truncateDigest(currentDigest),
+					truncateDigest(latestDigest))
+
+				update := &registry_monitor.ImagetoUpdate{
 					ContainerUid: img.ContainerUid,
 					NewTag:       fmt.Sprintf("%s:latest", img.Repository),
-					Description:  fmt.Sprintf("Update available for %s. New digest: %s", img.Repository, latestDigest),
-					Timestamp:    time.Now().Unix(),
+					Description: fmt.Sprintf("Update available for %s. Current: %s, New: %s",
+						img.Repository,
+						truncateDigest(currentDigest),
+						truncateDigest(latestDigest)),
+					Timestamp: time.Now().Unix(),
 				}
+
+				// Thread-safe append to response
+				mu.Lock()
+				response.ImagestoUpdate = append(response.ImagestoUpdate, update)
+				mu.Unlock()
+			} else {
+				log.Printf("DEBUG: No update needed for %s (digests match: %s)",
+					repoName,
+					truncateDigest(currentDigest))
 			}
 		}(image)
 	}
 
-	// Wait for all checks to complete.
+	// Wait for all checks to complete
 	wg.Wait()
-	// Close the channel to signal that no more updates will be sent.
-	close(updates)
 
-	for update := range updates {
-		response.ImagestoUpdate = append(response.ImagestoUpdate, update)
-	}
-
+	log.Printf("INFO: Checked %d images, found %d updates", len(checkforupdates.Images), len(response.ImagestoUpdate))
 	return response, nil
+}
+
+// truncateDigest is a helper function to safely truncate digests for logging
+func truncateDigest(digest string) string {
+	if len(digest) > 12 {
+		return digest[:12] + "..."
+	}
+	return digest
 }

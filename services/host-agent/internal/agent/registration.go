@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 
 	host_agent "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/host-agents"
@@ -34,12 +35,45 @@ func RegisterAgent(cli *dockerclient.Client, ctx context.Context, gRPCClient hos
 			continue
 		}
 
-		// Ports
-		var ports []string
+		// Ports -> structured PortMapping
+		var ports []*host_agent.PortMapping
 		if inspect.NetworkSettings != nil {
-			for _, bindings := range inspect.NetworkSettings.Ports {
+			for containerPortProto, bindings := range inspect.NetworkSettings.Ports {
+				// containerPortProto looks like "80/tcp"
+				parts := strings.Split(string(containerPortProto), "/")
+				if len(parts) != 2 {
+					continue
+				}
+				containerPort, err := strconv.Atoi(parts[0])
+				if err != nil {
+					continue
+				}
+				protocol := parts[1]
+
+				// If no bindings, it's exposed internally only
+				if len(bindings) == 0 {
+					ports = append(ports, &host_agent.PortMapping{
+						HostIp:        "",
+						HostPort:      0,
+						ContainerPort: uint32(containerPort),
+						Protocol:      protocol,
+					})
+					continue
+				}
+
 				for _, b := range bindings {
-					ports = append(ports, b.HostPort)
+					hostIP := b.HostIP
+					if hostIP == "" {
+						hostIP = "0.0.0.0"
+					}
+					hostPort, _ := strconv.Atoi(b.HostPort)
+
+					ports = append(ports, &host_agent.PortMapping{
+						HostIp:        hostIP,
+						HostPort:      uint32(hostPort),
+						ContainerPort: uint32(containerPort),
+						Protocol:      protocol,
+					})
 				}
 			}
 		}
@@ -62,7 +96,6 @@ func RegisterAgent(cli *dockerclient.Client, ctx context.Context, gRPCClient hos
 			Name:        strings.TrimPrefix(inspect.Name, "/"),
 			Image:       inspect.Config.Image,
 			Ports:       ports,
-			Digest:      inspect.Image,
 			EnvVars:     envVars,
 			Volumes:     volumes,
 			Network:     string(inspect.HostConfig.NetworkMode),
@@ -93,8 +126,10 @@ func RegisterAgent(cli *dockerclient.Client, ctx context.Context, gRPCClient hos
 		IpAddress:  ip,
 		Containers: containers,
 	}
-	// Prrtty print the host info for now
+
+	// Pretty print the host info for now
 	log.Printf("Host Info: %+v", hostInfo)
+
 	// Register the host with the orchestrator
 	res, err := gRPCClient.RegisterHost(ctx, &host_agent.RegisterHostRequest{
 		Host: hostInfo,

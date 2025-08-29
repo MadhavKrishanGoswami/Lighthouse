@@ -1,3 +1,4 @@
+
 syntax = "proto3";
 
 package orchestrator;
@@ -8,12 +9,19 @@ option go_package = "github.com/MadhavKrishanGoswami/Lighthouse/services/orchest
 // Messages
 // ====================
 
+// Port mapping definition
+message PortMapping {
+  string host_ip = 1;      // e.g., "0.0.0.0" or "::"
+  uint32 host_port = 2;    // e.g., 8080
+  uint32 container_port = 3; // e.g., 80
+  string protocol = 4;     // "tcp" or "udp"
+}
+
 message ContainerInfo {
   string containerID = 1;     // Unique identifier for the container
   string name = 2;            // Name of the container
   string image = 3;           // Docker image used for the container
-  string digest = 8;          // Image digest for versioning
-  repeated string ports = 4;  // List of ports exposed by the container
+  repeated PortMapping ports = 4;  // Structured ports
   repeated string envVars = 5;
   repeated string volumes = 6;
   string network = 7;
@@ -50,19 +58,18 @@ message HeartbeatResponse {
 }
 
 message UpdateContainerCommand {
-  string deploymentID = 1;
-  string containerUID = 2;              // which container to update
-  string image = 3;                    // target image (repo:tag or digest)
-  repeated string overrideEnvVars = 4; // optional overrides
-  repeated string overridePorts = 5;
+  string containerUID = 2;                // which container to update
+  string image = 3;                      // target image (repo:tag or digest)
+  repeated string overrideEnvVars = 4;   // optional overrides
+  repeated PortMapping overridePorts = 5; // structured ports override
   repeated string overrideVolumes = 6;
   string overrideNetwork = 7;
   string mac_address = 8; // target host
 }
 
 message UpdateStatus {
-  string deploymentID = 1;
   string containerUID = 2;
+  string image = 7; // target image (repo:tag or digest)
   string mac_address = 6; // target host
   enum Stage {
     UNKNOWN = 0;

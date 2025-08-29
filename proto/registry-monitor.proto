@@ -11,7 +11,6 @@ message ImageInfo {
   string containerUid = 1; // Unique ID for the container
   string repository = 2; // e.g., "nginx"
   string tag = 3;        // e.g., "1.25.0"
-  string digest = 4;     // e.g., "sha256:abc123..."
 }
 
 message CheckUpdatesRequest {

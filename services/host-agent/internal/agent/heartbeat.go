@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 	"strings"
 
 	host_agent "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/host-agents"
@@ -32,13 +33,45 @@ func Heartbeat(cli *dockerclient.Client, ctx context.Context, gRPCClient host_ag
 			log.Printf("Failed to inspect container %s: %v", c.ID, err)
 			continue
 		}
-
-		// Ports
-		var ports []string
+		// Ports -> structured PortMapping
+		var ports []*host_agent.PortMapping
 		if inspect.NetworkSettings != nil {
-			for _, bindings := range inspect.NetworkSettings.Ports {
+			for containerPortProto, bindings := range inspect.NetworkSettings.Ports {
+				// containerPortProto looks like "80/tcp"
+				parts := strings.Split(string(containerPortProto), "/")
+				if len(parts) != 2 {
+					continue
+				}
+				containerPort, err := strconv.Atoi(parts[0])
+				if err != nil {
+					continue
+				}
+				protocol := parts[1]
+
+				// If no bindings, it's exposed internally only
+				if len(bindings) == 0 {
+					ports = append(ports, &host_agent.PortMapping{
+						HostIp:        "",
+						HostPort:      0,
+						ContainerPort: uint32(containerPort),
+						Protocol:      protocol,
+					})
+					continue
+				}
+
 				for _, b := range bindings {
-					ports = append(ports, b.HostPort)
+					hostIP := b.HostIP
+					if hostIP == "" {
+						hostIP = "0.0.0.0"
+					}
+					hostPort, _ := strconv.Atoi(b.HostPort)
+
+					ports = append(ports, &host_agent.PortMapping{
+						HostIp:        hostIP,
+						HostPort:      uint32(hostPort),
+						ContainerPort: uint32(containerPort),
+						Protocol:      protocol,
+					})
 				}
 			}
 		}

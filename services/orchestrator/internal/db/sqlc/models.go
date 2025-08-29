@@ -11,57 +11,12 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type DeploymentStatus string
-
-const (
-	DeploymentStatusPending           DeploymentStatus = "pending"
-	DeploymentStatusRunning           DeploymentStatus = "running"
-	DeploymentStatusSuccess           DeploymentStatus = "success"
-	DeploymentStatusFailed            DeploymentStatus = "failed"
-	DeploymentStatusRollbackInitiated DeploymentStatus = "rollback_initiated"
-	DeploymentStatusRollbackComplete  DeploymentStatus = "rollback_complete"
-)
-
-func (e *DeploymentStatus) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = DeploymentStatus(s)
-	case string:
-		*e = DeploymentStatus(s)
-	default:
-		return fmt.Errorf("unsupported scan type for DeploymentStatus: %T", src)
-	}
-	return nil
-}
-
-type NullDeploymentStatus struct {
-	DeploymentStatus DeploymentStatus `json:"deployment_status"`
-	Valid            bool             `json:"valid"` // Valid is true if DeploymentStatus is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullDeploymentStatus) Scan(value interface{}) error {
-	if value == nil {
-		ns.DeploymentStatus, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.DeploymentStatus.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullDeploymentStatus) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.DeploymentStatus), nil
-}
-
 type UpdateStage string
 
 const (
 	UpdateStagePulling     UpdateStage = "pulling"
 	UpdateStageStarting    UpdateStage = "starting"
+	UpdateStageRunning     UpdateStage = "running"
 	UpdateStageHealthCheck UpdateStage = "health_check"
 	UpdateStageCompleted   UpdateStage = "completed"
 	UpdateStageRollback    UpdateStage = "rollback"
@@ -110,23 +65,12 @@ type Container struct {
 	HostID    pgtype.UUID        `json:"host_id"`
 	Name      string             `json:"name"`
 	Image     string             `json:"image"`
-	Digest    string             `json:"digest"`
 	Ports     []string           `json:"ports"`
 	EnvVars   []string           `json:"env_vars"`
 	Volumes   []string           `json:"volumes"`
 	Network   pgtype.Text        `json:"network"`
 	Watch     pgtype.Bool        `json:"watch"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
-}
-
-type Deployment struct {
-	ID          pgtype.UUID `json:"id"`
-	ContainerID pgtype.UUID `json:"container_id"`
-	// FK → hosts.id. Deployment tied to a host.
-	HostID      pgtype.UUID        `json:"host_id"`
-	TargetImage string             `json:"target_image"`
-	Status      DeploymentStatus   `json:"status"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 type Host struct {
@@ -140,8 +84,8 @@ type Host struct {
 }
 
 type UpdateStatus struct {
-	ID           int32       `json:"id"`
-	DeploymentID pgtype.UUID `json:"deployment_id"`
+	ID    int32  `json:"id"`
+	Image string `json:"image"`
 	// FK → hosts.id. Update status directly tied to a host.
 	HostID    pgtype.UUID        `json:"host_id"`
 	Stage     UpdateStage        `json:"stage"`
