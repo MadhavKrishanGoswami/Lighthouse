@@ -47,7 +47,7 @@ func (s *Server) SendCommand(agentID string, cmd *orchestrator.UpdateContainerCo
 
 	select {
 	case conn.CommandChan <- cmd:
-		log.Printf("Queued command for agent %s: update image to %s", agentID, cmd.Image)
+		log.Printf("Queued update command for agent %s image %s", agentID, cmd.Image)
 		return nil
 	case <-conn.done:
 		return fmt.Errorf("agent %s disconnected, cannot send command", agentID)
@@ -60,7 +60,7 @@ func (s *Server) RegisterHost(ctx context.Context, req *orchestrator.RegisterHos
 		return &orchestrator.RegisterHostResponse{Success: false, Message: "invalid request: host is nil"}, nil
 	}
 
-	log.Printf("Received host registration: %s (%s)", req.Host.Hostname, req.Host.IpAddress)
+	log.Printf("Host registration: %s (%s)", req.Host.Hostname, req.Host.IpAddress)
 
 	params := db.InsertHostParams{
 		MacAddress: req.Host.MacAddress,
@@ -69,7 +69,7 @@ func (s *Server) RegisterHost(ctx context.Context, req *orchestrator.RegisterHos
 	}
 	host, err := s.DB.InsertHost(ctx, params)
 	if err != nil {
-		log.Printf("Failed to register host: %v", err)
+		log.Printf("Register host failed: %v", err)
 		return &orchestrator.RegisterHostResponse{Success: false, Message: err.Error()}, nil
 	}
 
@@ -85,7 +85,7 @@ func (s *Server) RegisterHost(ctx context.Context, req *orchestrator.RegisterHos
 			Network:      pgtype.Text{String: container.Network, Valid: true},
 		}
 		if _, err := s.DB.InsertContainer(ctx, containerParams); err != nil {
-			log.Printf("Failed to register container %s: %v", container.Name, err)
+			log.Printf("Register container %s failed: %v", container.Name, err)
 		}
 	}
 
@@ -97,14 +97,14 @@ func (s *Server) RegisterHost(ctx context.Context, req *orchestrator.RegisterHos
 
 // Heartbeat processes periodic updates from agents.
 func (s *Server) Heartbeat(ctx context.Context, req *orchestrator.HeartbeatRequest) (*orchestrator.HeartbeatResponse, error) {
-	log.Printf("Received heartbeat from host: %s", req.MacAddress)
+	log.Printf("Heartbeat from host %s", req.MacAddress)
 	host, err := s.DB.GetHostByMacAddress(ctx, req.MacAddress)
 	if err != nil {
 		return &orchestrator.HeartbeatResponse{Success: false, Message: err.Error()}, nil
 	}
 
 	if _, err := s.DB.UpdateHostLastHeartbeat(ctx, host.ID); err != nil {
-		log.Printf("Failed to update heartbeat: %v", err)
+		log.Printf("Update heartbeat failed: %v", err)
 	}
 
 	activeContainerUIDs := make([]string, 0, len(req.Containers))
@@ -121,7 +121,7 @@ func (s *Server) Heartbeat(ctx context.Context, req *orchestrator.HeartbeatReque
 			Network:      pgtype.Text{String: c.Network, Valid: true},
 		}
 		if _, err := s.DB.InsertContainer(ctx, containerParams); err != nil {
-			log.Printf("Failed to upsert container %s: %v", c.Name, err)
+			log.Printf("Upsert container %s failed: %v", c.Name, err)
 		}
 	}
 
@@ -132,12 +132,12 @@ func (s *Server) Heartbeat(ctx context.Context, req *orchestrator.HeartbeatReque
 			Column2: activeContainerUIDs,
 		}
 		if err := s.DB.DeleteStaleContainersForHost(ctx, params); err != nil {
-			log.Printf("Failed to delete stale containers: %v", err)
+			log.Printf("Delete stale containers failed: %v", err)
 			return &orchestrator.HeartbeatResponse{Success: false, Message: err.Error()}, nil
 		}
 	}
 
-	log.Printf("Synced %d containers for host %s", len(activeContainerUIDs), req.MacAddress)
+	log.Printf("Synced %d containers host %s", len(activeContainerUIDs), req.MacAddress)
 	return &orchestrator.HeartbeatResponse{Success: true, Message: "Heartbeat processed successfully"}, nil
 }
 
@@ -152,7 +152,7 @@ func (s *Server) ConnectAgentStream(stream orchestrator.HostAgentService_Connect
 		return fmt.Errorf("empty agent ID")
 	}
 
-	log.Printf("Agent connected: %s", agentID)
+	log.Printf("Agent stream connected %s", agentID)
 	conn := &AgentConnection{
 		Stream:      stream,
 		CommandChan: make(chan *orchestrator.UpdateContainerCommand, 10),
@@ -168,7 +168,7 @@ func (s *Server) ConnectAgentStream(stream orchestrator.HostAgentService_Connect
 		delete(s.Hosts, agentID)
 		s.Mu.Unlock()
 		close(conn.done)
-		log.Printf("Agent %s disconnected", agentID)
+		log.Printf("Agent stream disconnected %s", agentID)
 	}()
 
 	// Write loop
@@ -177,7 +177,7 @@ func (s *Server) ConnectAgentStream(stream orchestrator.HostAgentService_Connect
 			select {
 			case cmd := <-conn.CommandChan:
 				if err := stream.Send(cmd); err != nil {
-					log.Printf("Failed to send command to agent %s: %v", agentID, err)
+					log.Printf("Send command to agent %s failed: %v", agentID, err)
 					return
 				}
 			case <-conn.done:
@@ -190,11 +190,11 @@ func (s *Server) ConnectAgentStream(stream orchestrator.HostAgentService_Connect
 	for {
 		msg, err := stream.Recv()
 		if err == io.EOF {
-			log.Printf("Agent %s closed the stream", agentID)
+			log.Printf("Agent stream closed by %s", agentID)
 			return nil
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("agent stream recv failed: %w", err)
 		}
 
 		status := msg.GetStage()
@@ -207,7 +207,7 @@ func (s *Server) ConnectAgentStream(stream orchestrator.HostAgentService_Connect
 			Image:  msg.Image,
 		})
 		if err != nil {
-			log.Printf("Failed to insert update status: %v", err)
+			log.Printf("Insert update status failed: %v", err)
 		}
 	}
 }

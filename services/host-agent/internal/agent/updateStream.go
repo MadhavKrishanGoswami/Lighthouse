@@ -19,13 +19,13 @@ func UpdateContainerStream(cli *dockerclient.Client, ctx context.Context, gRPCCl
 	// Get agent ID (MAC address)
 	agentID, err := GetMACAddress()
 	if err != nil {
-		log.Printf("Failed to get MAC address: %v", err)
+		log.Printf("MAC address lookup failed: %v", err)
 	}
 	stream, err := gRPCClient.ConnectAgentStream(ctx)
 	if err != nil {
 		return err
 	}
-	log.Println("Connected to orchestrator for update stream")
+	log.Println("Connected to orchestrator stream")
 
 	// Step 1: send dummy registration update
 	err = stream.Send(&orchestrator.UpdateStatus{
@@ -45,7 +45,7 @@ func UpdateContainerStream(cli *dockerclient.Client, ctx context.Context, gRPCCl
 		for {
 			select {
 			case <-ctx.Done():
-				log.Println("Shutting down stream listener")
+				log.Println("Stream listener stopping")
 				return
 			default:
 				cmd, err := stream.Recv()
@@ -54,7 +54,7 @@ func UpdateContainerStream(cli *dockerclient.Client, ctx context.Context, gRPCCl
 					return
 				}
 				if err != nil {
-					log.Printf("Error receiving command: %v", err)
+					log.Printf("Command receive error: %v", err)
 					continue
 				}
 
@@ -62,7 +62,7 @@ func UpdateContainerStream(cli *dockerclient.Client, ctx context.Context, gRPCCl
 				// Process the command to update container
 				err = UpdateContainer(cli, ctx, cmd, stream)
 				if err != nil {
-					log.Printf("Error updating container: %v", err)
+					log.Printf("Update command failed: %v", err)
 				}
 			}
 		}
@@ -73,7 +73,7 @@ func UpdateContainerStream(cli *dockerclient.Client, ctx context.Context, gRPCCl
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
 	<-sigCh
-	log.Println("Received shutdown signal, cleaning up...")
+	log.Println("Shutdown signal received, cleaning up...")
 
 	// Close the send side of the stream
 	if err := stream.CloseSend(); err != nil {

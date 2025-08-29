@@ -192,7 +192,7 @@ func Monitor(checkforupdates *registry_monitor.CheckUpdatesRequest) (*registry_m
 
 			// Validate input
 			if img == nil || img.Repository == "" {
-				log.Printf("WARN: Skipping invalid image info: %+v", img)
+				log.Printf("Skip invalid image info: %+v", img)
 				return
 			}
 
@@ -204,31 +204,31 @@ func Monitor(checkforupdates *registry_monitor.CheckUpdatesRequest) (*registry_m
 			// Get auth token
 			token, err := getAuthToken(repoName)
 			if err != nil {
-				log.Printf("ERROR: Could not get auth token for %s: %v", repoName, err)
+				log.Printf("Auth token fetch failed %s: %v", repoName, err)
 				return
 			}
 
 			// Get the most recent digest for the "latest" tag from the registry.
 			latestDigest, err := getLatestDigest(repoName, token)
 			if err != nil {
-				log.Printf("ERROR: Could not get latest digest for %s: %v", repoName, err)
+				log.Printf("Get latest digest failed %s: %v", repoName, err)
 				return
 			}
 
 			// Determine the current digest of the container.
 			var currentDigest string
 			// The digest was not provided, so we resolve the provided tag to its current digest.
-			log.Printf("DEBUG: Digest not provided for %s. Resolving tag '%s'.", repoName, img.Tag)
+			log.Printf("Digest not provided for %s resolving tag %s", repoName, img.Tag)
 			resolvedDigest, err := getCurrentDigest(repoName, img.Tag, token)
 			if err != nil {
-				log.Printf("ERROR: Could not resolve current digest for %s:%s: %v", repoName, img.Tag, err)
+				log.Printf("Resolve current digest failed %s:%s: %v", repoName, img.Tag, err)
 				return // Cannot proceed without a current digest to compare against.
 			}
 			currentDigest = resolvedDigest
 
 			// Compare digests - ONLY add if there's an actual update
 			if currentDigest != latestDigest {
-				log.Printf("INFO: Update found for %s. Current: %s, Latest: %s",
+				log.Printf("Update found %s current=%s latest=%s",
 					repoName,
 					truncateDigest(currentDigest),
 					truncateDigest(latestDigest))
@@ -248,7 +248,7 @@ func Monitor(checkforupdates *registry_monitor.CheckUpdatesRequest) (*registry_m
 				response.ImagestoUpdate = append(response.ImagestoUpdate, update)
 				mu.Unlock()
 			} else {
-				log.Printf("DEBUG: No update needed for %s (digests match: %s)",
+				log.Printf("No update needed %s digest=%s",
 					repoName,
 					truncateDigest(currentDigest))
 			}
@@ -258,7 +258,7 @@ func Monitor(checkforupdates *registry_monitor.CheckUpdatesRequest) (*registry_m
 	// Wait for all checks to complete
 	wg.Wait()
 
-	log.Printf("INFO: Checked %d images, found %d updates", len(checkforupdates.Images), len(response.ImagestoUpdate))
+	log.Printf("Checked %d images found %d updates", len(checkforupdates.Images), len(response.ImagestoUpdate))
 	return response, nil
 }
 

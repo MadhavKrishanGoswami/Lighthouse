@@ -20,7 +20,7 @@ func Heartbeat(cli *dockerclient.Client, ctx context.Context, gRPCClient host_ag
 		All: true, // include stopped containers if you want
 	})
 	if err != nil {
-		log.Printf("Failed to list containers: %v", err)
+		log.Printf("Failed listing containers: %v", err)
 		return err
 	}
 	var containers []*host_agent.ContainerInfo
@@ -30,7 +30,7 @@ func Heartbeat(cli *dockerclient.Client, ctx context.Context, gRPCClient host_ag
 	for _, c := range containersList {
 		inspect, err := cli.ContainerInspect(ctx, c.ID)
 		if err != nil {
-			log.Printf("Failed to inspect container %s: %v", c.ID, err)
+			log.Printf("Inspect failed for container %s: %v", c.ID, err)
 			continue
 		}
 		// Ports -> structured PortMapping
@@ -103,7 +103,7 @@ func Heartbeat(cli *dockerclient.Client, ctx context.Context, gRPCClient host_ag
 	}
 	macAddress, err := getLocalMacAddress()
 	if err != nil {
-		log.Printf("Failed to get MAC address: %v", err)
+		log.Printf("MAC address lookup failed: %v", err)
 	}
 
 	HeartbeatRequest := &host_agent.HeartbeatRequest{
@@ -112,7 +112,7 @@ func Heartbeat(cli *dockerclient.Client, ctx context.Context, gRPCClient host_ag
 	}
 	_, err = gRPCClient.Heartbeat(context.Background(), HeartbeatRequest)
 	if err != nil {
-		log.Printf("Failed to send heartbeat: %v", err)
+		log.Printf("Heartbeat send failed: %v", err)
 		return err
 	}
 	return nil

@@ -19,12 +19,12 @@ import (
 
 // UpdateContainer safely updates a container and rolls back on failure
 func UpdateContainer(cli *dockerclient.Client, ctx context.Context, update *orchestrator.UpdateContainerCommand, stream orchestrator.HostAgentService_ConnectAgentStreamClient) error {
-	log.Printf("Starting update for container: %s with image: %s", update.ContainerUID, update.Image)
+	log.Printf("Starting update for container %s -> image %s", update.ContainerUID, update.Image)
 
 	// 1. Inspect the existing container to get its configuration
 	inspect, err := cli.ContainerInspect(ctx, update.ContainerUID)
 	if err != nil {
-		log.Printf("Error inspecting container %s: %v", update.ContainerUID, err)
+		log.Printf("Inspect failed for %s: %v", update.ContainerUID, err)
 		sendStatus(stream, update, orchestrator.UpdateStatus_FAILED, fmt.Sprintf("Container not found: %v", err))
 		return err
 	}
@@ -68,7 +68,7 @@ func UpdateContainer(cli *dockerclient.Client, ctx context.Context, update *orch
 	rollbackNeeded = false
 
 	// 6. Send completion status and clean up the old image
-	log.Printf("Container update completed successfully. New ID: %s", newContainerID)
+	log.Printf("Update completed. New container ID: %s", newContainerID)
 	sendStatus(stream, update, orchestrator.UpdateStatus_COMPLETED, fmt.Sprintf("Container updated successfully. New ID: %s", newContainerID))
 
 	go cleanupOldImage(cli, context.Background(), originalImage)
@@ -78,34 +78,34 @@ func UpdateContainer(cli *dockerclient.Client, ctx context.Context, update *orch
 
 // rollbackChanges attempts to restore the original container if the update fails
 func rollbackChanges(cli *dockerclient.Client, ctx context.Context, stream orchestrator.HostAgentService_ConnectAgentStreamClient, update *orchestrator.UpdateContainerCommand, originalConfig *container.Config, originalHostConfig *container.HostConfig, originalName, newContainerID string) {
-	log.Printf("!!-- Starting rollback for container update: %s --!!", update.ContainerUID)
+	log.Printf("Starting rollback for %s", update.ContainerUID)
 	sendStatus(stream, update, orchestrator.UpdateStatus_ROLLBACK, "Update failed, attempting to roll back.")
 
 	// If a new container was created, try to remove it
 	if newContainerID != "" {
-		log.Printf("Rollback: Removing new (failed) container %s", newContainerID)
+		log.Printf("Rollback: removing failed new container %s", newContainerID)
 		if err := cli.ContainerRemove(ctx, newContainerID, container.RemoveOptions{Force: true}); err != nil {
-			log.Printf("Rollback Warning: Failed to remove new container %s: %v", newContainerID, err)
+			log.Printf("Rollback: failed to remove new container %s: %v", newContainerID, err)
 		}
 	}
 
 	// Try to recreate the original container
-	log.Printf("Rollback: Re-creating original container '%s' with image '%s'", originalName, originalConfig.Image)
+	log.Printf("Rollback: re-creating original container '%s' (image %s)", originalName, originalConfig.Image)
 	resp, err := cli.ContainerCreate(ctx, originalConfig, originalHostConfig, nil, nil, originalName)
 	if err != nil {
-		log.Printf("ROLLBACK FAILED: Could not re-create original container: %v", err)
+		log.Printf("Rollback failed: could not re-create original container: %v", err)
 		sendStatus(stream, update, orchestrator.UpdateStatus_FAILED, fmt.Sprintf("Rollback failed: could not re-create container: %v", err))
 		return
 	}
 
 	// Try to start the restored container
 	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		log.Printf("ROLLBACK FAILED: Could not start restored container: %v", err)
+		log.Printf("Rollback failed: could not start restored container: %v", err)
 		sendStatus(stream, update, orchestrator.UpdateStatus_FAILED, fmt.Sprintf("Rollback failed: could not start restored container: %v", err))
 		return
 	}
 
-	log.Printf("Rollback successful: Original container restored with new ID: %s", resp.ID)
+	log.Printf("Rollback successful: restored original container (ID %s)", resp.ID)
 	sendStatus(stream, update, orchestrator.UpdateStatus_COMPLETED, "Rollback successful. Original container is running.")
 }
 
@@ -114,13 +114,13 @@ func pullImage(cli *dockerclient.Client, ctx context.Context, stream orchestrato
 	sendStatus(stream, update, orchestrator.UpdateStatus_PULLING, "Pulling new image")
 	out, err := cli.ImagePull(ctx, update.Image, image.PullOptions{})
 	if err != nil {
-		log.Printf("Error pulling image %s: %v", update.Image, err)
+		log.Printf("Pull failed for image %s: %v", update.Image, err)
 		sendStatus(stream, update, orchestrator.UpdateStatus_FAILED, fmt.Sprintf("Failed to pull image: %v", err))
 		return err
 	}
 	defer out.Close()
 	io.Copy(io.Discard, out)
-	log.Printf("Image %s pulled successfully", update.Image)
+	log.Printf("Pulled image %s", update.Image)
 	return nil
 }
 
@@ -129,14 +129,14 @@ func stopAndRemoveContainer(cli *dockerclient.Client, ctx context.Context, strea
 	sendStatus(stream, update, orchestrator.UpdateStatus_STARTING, "Stopping existing container")
 	stopTimeout := 10
 	if err := cli.ContainerStop(ctx, containerID, container.StopOptions{Timeout: &stopTimeout}); err != nil {
-		log.Printf("Error stopping container %s: %v", containerID, err)
+		log.Printf("Stop failed for container %s: %v", containerID, err)
 		sendStatus(stream, update, orchestrator.UpdateStatus_FAILED, fmt.Sprintf("Failed to stop container: %v", err))
 		return err
 	}
 
-	log.Printf("Removing container %s", containerID)
+	log.Printf("Removing old container %s", containerID)
 	if err := cli.ContainerRemove(ctx, containerID, container.RemoveOptions{Force: false}); err != nil {
-		log.Printf("Error removing container %s: %v", containerID, err)
+		log.Printf("Remove failed for container %s: %v", containerID, err)
 		sendStatus(stream, update, orchestrator.UpdateStatus_FAILED, fmt.Sprintf("Failed to remove container: %v", err))
 		return err
 	}
@@ -153,19 +153,19 @@ func createNewContainer(cli *dockerclient.Client, ctx context.Context, stream or
 
 	resp, err := cli.ContainerCreate(ctx, newConfig, newHostConfig, networkConfig, nil, name)
 	if err != nil {
-		log.Printf("Error creating new container: %v", err)
+		log.Printf("Create failed: %v", err)
 		sendStatus(stream, update, orchestrator.UpdateStatus_FAILED, fmt.Sprintf("Failed to create container: %v", err))
 		return "", err
 	}
-	log.Printf("New container created with ID: %s", resp.ID)
+	log.Printf("Created new container ID: %s", resp.ID)
 	return resp.ID, nil
 }
 
 // startNewContainer starts the newly created container
 func startNewContainer(cli *dockerclient.Client, ctx context.Context, stream orchestrator.HostAgentService_ConnectAgentStreamClient, update *orchestrator.UpdateContainerCommand, containerID string) error {
-	log.Printf("Starting new container: %s", containerID)
+	log.Printf("Starting new container %s", containerID)
 	if err := cli.ContainerStart(ctx, containerID, container.StartOptions{}); err != nil {
-		log.Printf("Error starting container %s: %v", containerID, err)
+		log.Printf("Start failed for container %s: %v", containerID, err)
 		sendStatus(stream, update, orchestrator.UpdateStatus_FAILED, fmt.Sprintf("Failed to start container: %v", err))
 		return err
 	}
@@ -213,7 +213,7 @@ func processPortOverrides(ports []*orchestrator.PortMapping) (nat.PortSet, nat.P
 		}
 		containerPort, err := nat.NewPort(protocol, strconv.FormatUint(uint64(p.ContainerPort), 10))
 		if err != nil {
-			log.Printf("Warning: Invalid container port mapping: %v", err)
+			log.Printf("⚠️ Invalid port mapping skipped: %v", err)
 			continue
 		}
 		hostIP := p.HostIp
@@ -256,24 +256,24 @@ func sendStatus(stream orchestrator.HostAgentService_ConnectAgentStreamClient, u
 		Timestamp:    time.Now().String(),
 	}
 	if err := stream.Send(status); err != nil {
-		log.Printf("Error sending status update: %v", err)
+		log.Printf("Failed sending status update: %v", err)
 	}
 }
 
 // cleanupOldImage removes the old Docker image if it's no longer in use
 func cleanupOldImage(cli *dockerclient.Client, ctx context.Context, imageRef string) {
 	time.Sleep(10 * time.Second) // Wait a bit before cleanup
-	log.Printf("Attempting to clean up old image: %s", imageRef)
+	log.Printf("Cleaning up old image: %s", imageRef)
 
 	containers, err := cli.ContainerList(ctx, container.ListOptions{All: true})
 	if err != nil {
-		log.Printf("Cleanup warning: could not list containers: %v", err)
+		log.Printf("Cleanup: could not list containers: %v", err)
 		return
 	}
 
 	for _, c := range containers {
 		if c.Image == imageRef {
-			log.Printf("Old image %s is still in use by container %s. Skipping removal.", imageRef, c.ID)
+			log.Printf("Old image %s still used by container %s; skipping removal", imageRef, c.ID)
 			return
 		}
 	}
@@ -281,6 +281,6 @@ func cleanupOldImage(cli *dockerclient.Client, ctx context.Context, imageRef str
 	if _, err := cli.ImageRemove(ctx, imageRef, image.RemoveOptions{PruneChildren: true}); err != nil {
 		log.Printf("Could not remove old image %s: %v", imageRef, err)
 	} else {
-		log.Printf("Old image %s removed successfully.", imageRef)
+		log.Printf("Removed old image %s", imageRef)
 	}
 }

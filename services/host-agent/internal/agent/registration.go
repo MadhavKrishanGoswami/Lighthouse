@@ -21,7 +21,7 @@ func RegisterAgent(cli *dockerclient.Client, ctx context.Context, gRPCClient hos
 		All: true, // include stopped containers if you want
 	})
 	if err != nil {
-		log.Printf("Failed to list containers: %v", err)
+		log.Printf("Failed listing containers: %v", err)
 		return err
 	}
 
@@ -31,7 +31,7 @@ func RegisterAgent(cli *dockerclient.Client, ctx context.Context, gRPCClient hos
 	for _, c := range containersList {
 		inspect, err := cli.ContainerInspect(ctx, c.ID)
 		if err != nil {
-			log.Printf("Failed to inspect container %s: %v", c.ID, err)
+			log.Printf("Inspect failed for container %s: %v", c.ID, err)
 			continue
 		}
 
@@ -107,17 +107,17 @@ func RegisterAgent(cli *dockerclient.Client, ctx context.Context, gRPCClient hos
 	// Get host information
 	hostID, err := GetMACAddress()
 	if err != nil {
-		log.Printf("Failed to get MAC address: %v", err)
+		log.Printf("MAC address lookup failed: %v", err)
 		return err
 	}
 	hostname, err := os.Hostname()
 	if err != nil {
-		log.Printf("Failed to get hostname: %v", err)
+		log.Printf("Hostname lookup failed: %v", err)
 		return err
 	}
 	ip, err := GetHostIP()
 	if err != nil {
-		log.Printf("Failed to get host IP: %v", err)
+		log.Printf("Host IP lookup failed: %v", err)
 		return err
 	}
 	hostInfo := &host_agent.HostInfo{
@@ -128,20 +128,20 @@ func RegisterAgent(cli *dockerclient.Client, ctx context.Context, gRPCClient hos
 	}
 
 	// Pretty print the host info for now
-	log.Printf("Host Info: %+v", hostInfo)
+	log.Printf("Host info collected: %+v", hostInfo)
 
 	// Register the host with the orchestrator
 	res, err := gRPCClient.RegisterHost(ctx, &host_agent.RegisterHostRequest{
 		Host: hostInfo,
 	})
 	if err != nil {
-		log.Printf("Failed to register host: %v", err)
+		log.Printf("Host registration RPC failed: %v", err)
 		return err
 	}
 	if res.Success {
-		log.Printf("Host registered successfully: %s", res.Message)
+		log.Printf("Host registered: %s", res.Message)
 	} else {
-		log.Printf("Failed to register host: %s", res.Message)
+		log.Printf("Host registration rejected: %s", res.Message)
 	}
 	return nil
 }

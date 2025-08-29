@@ -2,7 +2,6 @@ package monitor
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -24,10 +23,10 @@ func CronMonitor(timeinmin int, grpcClient registry_monitor.RegistryMonitorServi
 	for {
 		select {
 		case <-ticker.C:
-			fmt.Println("Ticker ticked! Checking for updates...")
+			log.Println("Cron: checking for updates")
 			toUpdateContainers, err := CheckForUpdates(ctx, grpcClient, queries)
 			if err != nil {
-				fmt.Printf("Error checking for updates: %v\n", err)
+				log.Printf("CheckForUpdates failed: %v", err)
 				continue
 			}
 			if len(toUpdateContainers.ImagestoUpdate) > 0 {
@@ -35,22 +34,22 @@ func CronMonitor(timeinmin int, grpcClient registry_monitor.RegistryMonitorServi
 					// Get the host where this container is running
 					host, err := queries.GetHostbyContainerUID(ctx, image.ContainerUid)
 					if err != nil {
-						fmt.Printf("Error getting host ID for container UID %s: %v\n", image.ContainerUid, err)
+						log.Printf("Get host for container %s failed: %v", image.ContainerUid, err)
 						continue
 					}
 
 					// Get container details from DB
 					container, err := queries.GetContainerbyContainerUID(ctx, image.ContainerUid)
 					if err != nil {
-						fmt.Printf("Error getting container by UID %s: %v\n", image.ContainerUid, err)
+						log.Printf("Get container %s failed: %v", image.ContainerUid, err)
 						continue
 					}
 
-					log.Printf("Sending update command to host %s for container UID %s\n", host.ID, image.ContainerUid)
+					log.Printf("Sending update command host %s container %s", host.ID, image.ContainerUid)
 
 					hostStream, ok := agentServer.Hosts[host.MacAddress]
 					if !ok {
-						fmt.Printf("No active stream found for host %s\n", host.ID)
+						log.Printf("No active stream for host %s", host.ID)
 						continue
 					}
 
@@ -99,16 +98,16 @@ func CronMonitor(timeinmin int, grpcClient registry_monitor.RegistryMonitorServi
 
 					// Send update command
 					if err := hostStream.Stream.Send(&cmd); err != nil {
-						fmt.Printf("Error sending update command to host %s: %v\n", host.ID, err)
+						log.Printf("Send update command host %s failed: %v", host.ID, err)
 						continue
 					}
-					log.Printf("Update command sent to host %s for container UID %s\n", host.ID, image.ContainerUid)
+					log.Printf("Update command sent host %s container %s", host.ID, image.ContainerUid)
 				}
 			} else {
-				fmt.Println("No images to update.")
+				log.Println("No images to update")
 			}
 		case <-ctx.Done():
-			fmt.Println("Context cancelled, stopping the ticker.")
+			log.Println("Cron monitor context canceled")
 			return
 		}
 	}

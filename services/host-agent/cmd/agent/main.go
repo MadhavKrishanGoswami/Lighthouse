@@ -18,23 +18,23 @@ func main() {
 	// --- 1. Start gRPC client and wait until orchestrator server is ready ---
 	gRPCClient, clientConn, err := client.StartClient()
 	if err != nil {
-		log.Fatalf("Failed to start gRPC client: %v", err)
+		log.Fatalf("gRPC client init failed: %v", err)
 	}
 	defer func() {
 		if clientConn != nil {
 			if err := clientConn.Close(); err != nil {
 				log.Printf("Failed to close gRPC client connection: %v", err)
 			} else {
-				log.Println("gRPC client connection closed successfully")
+				log.Println("Closed gRPC client connection")
 			}
 		}
 	}()
-	log.Println("gRPC client connected to orchestrator.")
+	log.Println("Connected to orchestrator gRPC endpoint")
 
 	// --- 2. Docker client setup ---
 	cli, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv, dockerclient.WithAPIVersionNegotiation())
 	if err != nil {
-		log.Fatalf("Failed to create Docker client: %v", err)
+		log.Fatalf("Docker client creation failed: %v", err)
 	}
 	defer cli.Close()
 
@@ -46,9 +46,9 @@ func main() {
 	regCtx, regCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer regCancel()
 	if err := agent.RegisterAgent(cli, regCtx, gRPCClient); err != nil {
-		log.Fatalf("Failed to register agent: %v", err)
+		log.Fatalf("Agent registration failed: %v", err)
 	}
-	log.Println("Agent registered successfully with orchestrator.")
+	log.Println("Agent registered with orchestrator")
 
 	// --- 5. WaitGroup for goroutines ---
 	var wg sync.WaitGroup
@@ -63,12 +63,10 @@ func main() {
 			select {
 			case <-ticker.C:
 				if err := agent.Heartbeat(cli, ctx, gRPCClient); err != nil {
-					log.Printf("Failed to send heartbeat: %v", err)
-				} else {
-					log.Println("Heartbeat sent successfully.")
+					log.Printf("Heartbeat send failed: %v", err)
 				}
 			case <-ctx.Done():
-				log.Println("Stopping heartbeat loop.")
+				log.Println("Heartbeat loop stopping (context canceled)")
 				return
 			}
 		}
@@ -79,7 +77,7 @@ func main() {
 	go func() {
 		defer wg.Done()
 		if err := agent.UpdateContainerStream(cli, ctx, gRPCClient); err != nil && ctx.Err() == nil {
-			log.Printf("Failed to start UpdateContainer stream: %v", err)
+			log.Printf("UpdateContainer stream error: %v", err)
 		}
 	}()
 
@@ -88,8 +86,8 @@ func main() {
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 
 	<-sigCh
-	log.Println("Termination signal received. Shutting down gracefully...")
+	log.Println("Signal received – beginning graceful shutdown...")
 	cancel()  // cancel context to stop goroutines
 	wg.Wait() // wait for all goroutines to finish
-	log.Println("All goroutines stopped. Agent shutdown complete.")
+	log.Println("Shutdown complete (all goroutines finished)")
 }

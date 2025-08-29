@@ -22,7 +22,7 @@ func CheckForUpdates(ctx context.Context, grpcClient registry_monitor.RegistryMo
 	}
 
 	if len(containers) == 0 {
-		log.Println("No containers found in the watchlist.")
+		log.Println("No containers in watchlist")
 		return registry_monitor.CheckUpdatesResponse{}, nil
 	}
 
@@ -53,7 +53,7 @@ func CheckForUpdates(ctx context.Context, grpcClient registry_monitor.RegistryMo
 		// As you noted, if the digest is empty in the database, it will be empty
 		// in this request. The logic for populating the initial digest should be
 		// handled when the container is first added to the database.
-		log.Printf("Preparing to check image: Repository=%s, Tag=%s, Digest=%s", repository, tag)
+		log.Printf("Check image repository=%s tag=%s", repository, tag)
 		imageInfo := &registry_monitor.ImageInfo{
 			ContainerUid: c.ContainerUid,
 			Repository:   repository,
@@ -66,13 +66,13 @@ func CheckForUpdates(ctx context.Context, grpcClient registry_monitor.RegistryMo
 		Images: containerInfos,
 	}
 
-	log.Printf("Checking for updates for %d containers in the watchlist.", len(containerInfos))
+	log.Printf("Checking for updates for %d containers", len(containerInfos))
 	resp, err := grpcClient.CheckUpdates(ctx, req)
 	if err != nil {
 		log.Printf("gRPC call to CheckUpdates failed: %v", err)
 		return registry_monitor.CheckUpdatesResponse{}, err
 	}
 
-	log.Printf("%d container(s) have updates available.", len(resp.ImagestoUpdate))
+	log.Printf("%d containers have updates", len(resp.ImagestoUpdate))
 	return *resp, nil
 }
