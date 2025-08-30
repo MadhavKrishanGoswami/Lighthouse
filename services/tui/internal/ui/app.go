@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"time"
+
 	"github.com/rivo/tview"
 )
 
@@ -8,7 +10,7 @@ import (
 type App struct {
 	*tview.Application
 	logo       *tview.Box
-	hosts      *tview.Box
+	hosts      *HostsPanel
 	containers *tview.Box
 	logs       *tview.Box
 	cron       *tview.Box
@@ -26,10 +28,19 @@ func NewApp() *App {
 	// In a real application, these would be initialized from their respective files
 	// e.g., logo := NewLogoWidget()
 	app.logo = createPlaceholderBox("Animated ASCII Logo")
-	app.hosts = createPlaceholderBox("Hosts")
+	app.hosts = NewHostsPanel()
 	app.containers = createPlaceholderBox("Containers")
 	app.logs = createPlaceholderBox("Logs")
 	app.cron = createPlaceholderBox("Cron Timer")
+	// --- Link panels together ---
+	app.hosts.SetHostSelectedFunc(func(hostName string) {
+		app.containers.SetTitle("Containers on " + hostName)
+	})
+
+	// --- Load initial data ---
+	// Fetch the mock host data and update the panel to display it.
+	initialHosts := fetchMockHosts()
+	app.hosts.Update(initialHosts)
 
 	// --- Setup the main layout ---
 	app.setupLayout()
@@ -70,4 +81,14 @@ func createPlaceholderBox(title string) *tview.Box {
 		SetBorder(true).
 		SetTitleAlign(tview.AlignCenter).
 		SetTitle(title)
+}
+
+// fetchMockHosts simulates fetching host data from an external source.
+func fetchMockHosts() []Host {
+	hosts := []Host{
+		{Name: "host1", IP: "192:168.1.10", LastHeartbeat: time.Now(), MACAddress: "00:1A:2B:3C:4D:5E"},
+		{Name: "host2", IP: "192:168.1.11", LastHeartbeat: time.Now().Add(-5 * time.Minute), MACAddress: "00:1A:2B:3C:4D:5F"},
+		{Name: "host3", IP: "192:168.1.12", LastHeartbeat: time.Now().Add(-10 * time.Minute), MACAddress: "00:1A:2B:3C:4D:60"},
+	}
+	return hosts
 }
