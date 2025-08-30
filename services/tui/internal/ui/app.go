@@ -11,7 +11,7 @@ type App struct {
 	*tview.Application
 	logo       *tview.Box
 	hosts      *HostsPanel
-	containers *tview.Box
+	containers *ContainersPanel // Changed from *tview.Box
 	logs       *tview.Box
 	cron       *tview.Box
 	root       *tview.Flex
@@ -19,54 +19,57 @@ type App struct {
 
 // NewApp creates and initializes the TUI application and its layout.
 func NewApp() *App {
-	// Initialize the main application.
 	app := &App{
 		Application: tview.NewApplication(),
 	}
 
-	// --- Initialize UI components (as placeholders) ---
-	// In a real application, these would be initialized from their respective files
-	// e.g., logo := NewLogoWidget()
+	// --- Initialize UI components ---
 	app.logo = createPlaceholderBox("Animated ASCII Logo")
 	app.hosts = NewHostsPanel()
-	app.containers = createPlaceholderBox("Containers")
+	app.containers = NewContainersPanel(app) // Initialize the real ContainersPanel
 	app.logs = createPlaceholderBox("Logs")
 	app.cron = createPlaceholderBox("Cron Timer")
-	// --- Link panels together ---
-	app.hosts.SetHostSelectedFunc(func(hostName string) {
-		app.containers.SetTitle("Containers on " + hostName)
-	})
 
-	// --- Load initial data ---
-	// Fetch the mock host data and update the panel to display it.
-	initialHosts := fetchMockHosts()
-	app.hosts.Update(initialHosts)
+	// --- Link panels together ---
+	// This is the updated link: when a host is selected, this function is called.
+	app.hosts.SetHostSelectedFunc(func(hostName string) {
+		// Fetch the mock container data for the selected host.
+		containersForHost := fetchMockContainers(hostName)
+		// Update the containers panel with the new data.
+		app.containers.Update(containersForHost)
+	})
 
 	// --- Setup the main layout ---
 	app.setupLayout()
+
+	// --- Load initial data and set initial focus ---
+	// This function runs safely after the first screen draw to prevent deadlocks.
+
+	initialHosts := fetchMockHosts()
+	app.hosts.Update(initialHosts)
+	app.SetFocus(app.hosts)
 
 	return app
 }
 
 // setupLayout defines the grid structure of the dashboard.
 func (a *App) setupLayout() {
-	// Left column containing Logo, Hosts, and Logs
+	// Left column
 	leftColumn := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(a.logo, 0, 1, false).  // Proportion 1
-		AddItem(a.hosts, 0, 2, false). // Proportion 2
-		AddItem(a.cron, 0, 2, false)   // Proportion 2
+		AddItem(a.logo, 0, 1, false).
+		AddItem(a.hosts, 0, 3, true).
+		AddItem(a.logs, 0, 2, false)
 
-	// Right column containing Containers and Cron timer
+	// Right column
 	rightColumn := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(a.containers, 0, 15, false). // Proportion 5 (takes most space)
-		AddItem(a.logs, 0, 5, false)         // Fixed size of 3 rows
+		AddItem(a.containers, 0, 7, false).
+		AddItem(a.cron, 0, 3, false)
 
-	// Root flex container that holds the two columns
+	// Root flex container
 	a.root = tview.NewFlex().
-		AddItem(leftColumn, 0, 8, false).  // Left column takes 1/3 of the width
-		AddItem(rightColumn, 0, 12, false) // Right column takes 2/3 of the width
+		AddItem(leftColumn, 0, 9, true).
+		AddItem(rightColumn, 0, 11, false)
 
-	// Set the root of the application
 	a.SetRoot(a.root, true).EnableMouse(true)
 }
 
@@ -80,7 +83,7 @@ func createPlaceholderBox(title string) *tview.Box {
 	return tview.NewBox().
 		SetBorder(true).
 		SetTitleAlign(tview.AlignCenter).
-		SetTitle(title)
+		SetTitle(" " + title + " ")
 }
 
 // fetchMockHosts simulates fetching host data from an external source.
@@ -91,4 +94,14 @@ func fetchMockHosts() []Host {
 		{Name: "host3", IP: "192:168.1.12", LastHeartbeat: time.Now().Add(-10 * time.Minute), MACAddress: "00:1A:2B:3C:4D:60"},
 	}
 	return hosts
+}
+
+// fetchMockContainers simulates fetching container data for a given host.
+func fetchMockContainers(hostName string) []Container {
+	containers := []Container{
+		{Name: hostName + "-container1", Image: "nginx:latest", Status: "Running", IsWatching: true, IsUpdating: false},
+		{Name: hostName + "-container2", Image: "redis:alpine", Status: "Exited", IsWatching: false, IsUpdating: true},
+		{Name: hostName + "-container3", Image: "postgres:13", Status: "Running", IsWatching: true, IsUpdating: true},
+	}
+	return containers
 }
