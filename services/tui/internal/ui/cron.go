@@ -28,7 +28,7 @@ func NewCronWidget(app *App) *CronWidget {
 		AddItem(intervalView, 0, 1, true)
 
 	// Changed the title to reflect the new purpose.
-	flex.SetBorder(true).SetTitle(" Update Interval ")
+	flex.SetBorder(true).SetTitle(" Cron Interval ")
 
 	widget := &CronWidget{
 		Flex:         flex,
@@ -60,17 +60,22 @@ func (cw *CronWidget) adjustInterval(delta time.Duration) {
 	if cw.duration < 1*time.Hour {
 		cw.duration = 1 * time.Hour
 	}
-	// Enforce a maximum of 24 hours.
-	if cw.duration > 24*time.Hour {
-		cw.duration = 24 * time.Hour
-	}
+
 	// No need to reset a timer, just update the display text.
 	cw.updateIntervalText()
 }
 
 // updateIntervalText refreshes the text in the right-hand box.
+
 func (cw *CronWidget) updateIntervalText() {
-	// Added more newlines for better vertical centering.
-	text := fmt.Sprintf("\n\n\n[yellow]Interval:\n\n[white]%d Hour(s)\n\n\n\n[grey](Press +/- to change)", int(cw.duration.Hours()))
+	hours := int(cw.duration.Hours())
+
+	text := fmt.Sprintf(
+		"\n"+ // Subtle label
+			"[green]%2d Hour(s)\n\n "+ // Highlighted main value
+			"[yellow](Use + / - to adjust)\n", // Subtle instruction
+		hours,
+	)
+
 	cw.intervalView.SetText(text)
 }

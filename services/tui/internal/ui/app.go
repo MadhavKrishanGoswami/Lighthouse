@@ -9,14 +9,14 @@ import (
 // App struct holds the TUI application and its components.
 type App struct {
 	*tview.Application
-	logo                *LogoWidget
-	hosts               *HostsPanel
-	containers          *ContainersPanel // Changed from *tview.Box
-	logs                *tview.Box
-	cron                *CronWidget
-	servicesStatus      *tview.Box
-	totalServicesStatus *tview.Box
-	root                *tview.Flex
+	logo           *LogoWidget
+	hosts          *HostsPanel
+	containers     *ContainersPanel // Changed from *tview.Box
+	logs           *tview.Box
+	cron           *CronWidget
+	servicesStatus *ServicesPanel
+	credits        *tview.Box
+	root           *tview.Flex
 }
 
 // NewApp creates and initializes the TUI application and its layout.
@@ -31,8 +31,8 @@ func NewApp() *App {
 	app.containers = NewContainersPanel(app) // Initialize the real ContainersPanel
 	app.logs = createPlaceholderBox("Logs")
 	app.cron = NewCronWidget(app)
-	app.servicesStatus = createPlaceholderBox("Services Status")
-	app.totalServicesStatus = createPlaceholderBox("Credits")
+	app.servicesStatus = NewServicesPanel(app)
+	app.credits = createPlaceholderBox("Credits")
 
 	// --- Link panels together ---
 	// This is the updated link: when a host is selected, this function is called.
@@ -52,6 +52,7 @@ func NewApp() *App {
 	initialHosts := fetchMockHosts()
 	app.hosts.Update(initialHosts)
 	app.SetFocus(app.hosts)
+	app.servicesStatus.Update(fetchMockServices())
 	// Start the cron widget countdown.
 
 	return app
@@ -67,14 +68,14 @@ func (a *App) setupLayout() {
 
 	// Bottom row for the right column, laid out horizontally
 	bottomRow := tview.NewFlex().
-		AddItem(a.cron, 0, 1, false).
-		AddItem(a.servicesStatus, 0, 2, false).
-		AddItem(a.totalServicesStatus, 0, 1, false)
+		AddItem(a.cron, 0, 3, false).
+		AddItem(a.servicesStatus, 0, 4, false).
+		AddItem(a.credits, 0, 3, false)
 
 	// Right column
 	rightColumn := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(a.containers, 0, 7, false).
-		AddItem(bottomRow, 0, 3, false)
+		AddItem(a.containers, 0, 85, false).
+		AddItem(bottomRow, 0, 15, false)
 
 	// Root flex container
 	a.root = tview.NewFlex().
@@ -115,4 +116,13 @@ func fetchMockContainers(hostName string) []Container {
 		{Name: hostName + "-container3", Image: "postgres:13", Status: "Running", IsWatching: true, IsUpdating: true},
 	}
 	return containers
+}
+
+func fetchMockServices() Service {
+	return Service{
+		OrchestratorStatus:    true,
+		RegistryMonitorStatus: false,
+		TotalHosts:            3,
+		DatabaseStatus:        true,
+	}
 }
