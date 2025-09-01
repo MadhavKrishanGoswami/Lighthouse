@@ -12,7 +12,7 @@ type App struct {
 	logo           *LogoWidget
 	hosts          *HostsPanel
 	containers     *ContainersPanel // Changed from *tview.Box
-	logs           *tview.Box
+	logs           *LogsPanel
 	cron           *CronWidget
 	servicesStatus *ServicesPanel
 	credits        *tview.Box
@@ -29,7 +29,7 @@ func NewApp() *App {
 	app.logo = NewLogoWidget(app)
 	app.hosts = NewHostsPanel()
 	app.containers = NewContainersPanel(app) // Initialize the real ContainersPanel
-	app.logs = createPlaceholderBox("Logs")
+	app.logs = NewLogsPanel(app)
 	app.cron = NewCronWidget(app)
 	app.servicesStatus = NewServicesPanel(app)
 	app.credits = createPlaceholderBox("Credits")
@@ -53,7 +53,7 @@ func NewApp() *App {
 	app.hosts.Update(initialHosts)
 	app.SetFocus(app.hosts)
 	app.servicesStatus.Update(fetchMockServices())
-	// Start the cron widget countdown.
+	app.logs.SafeLogSimulator(fetchMOckLogs(), 5)
 
 	return app
 }
@@ -124,5 +124,14 @@ func fetchMockServices() Service {
 		RegistryMonitorStatus: false,
 		TotalHosts:            3,
 		DatabaseStatus:        true,
+	}
+}
+
+func fetchMOckLogs() []string {
+	return []string{
+		"[green]2024-10-01 12:00:00[white] - System initialized.",
+		"[yellow]2024-10-01 12:05:00[white] - Host host1 connected.",
+		"[red]2024-10-01 12:10:00[white] - Error fetching container data for host2.",
+		"[green]2024-10-01 12:15:00[white] - Cron job executed successfully.",
 	}
 }
