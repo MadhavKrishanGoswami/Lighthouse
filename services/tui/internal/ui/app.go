@@ -79,8 +79,8 @@ func (a *App) setupLayout() {
 
 	// Root flex container
 	a.root = tview.NewFlex().
-		AddItem(leftColumn, 0, 9, true).
-		AddItem(rightColumn, 0, 11, false)
+		AddItem(leftColumn, 0, 7, true).
+		AddItem(rightColumn, 0, 13, false)
 
 	a.SetRoot(a.root, true).EnableMouse(true)
 }

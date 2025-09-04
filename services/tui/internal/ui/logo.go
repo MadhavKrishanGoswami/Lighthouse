@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"math/rand"
 	"strings"
 	"time"
 
@@ -9,72 +8,80 @@ import (
 	"github.com/rivo/tview"
 )
 
-// LogoWidget is a tview primitive that displays the animated ASCII logo.
+// LogoWidget is a custom tview primitive that displays and animates an ASCII logo.
 type LogoWidget struct {
 	*tview.Box
-	animationFrames  []string
-	currentFrame     int
-	animationRunning bool
 	app              *App
+	animationRunning bool
 	animationSpeed   time.Duration
+	artLines         []string
+	width, height    int
 }
 
-// NewLogoWidget creates a new widget for the animated logo.
+// NewLogoWidget creates a new LogoWidget from ASCII art.
 func NewLogoWidget(app *App) *LogoWidget {
-	box := tview.NewBox().SetBorder(false)
-	logo := &LogoWidget{
-		Box:              box,
-		animationFrames:  generateLogoFrames(),
-		currentFrame:     0,
-		animationRunning: false,
+	// Clean and split art into lines
+	cleanedArt := strings.ReplaceAll(logoArt, " ", " ")
+	lines := strings.Split(strings.TrimRight(cleanedArt, "\n"), "\n")
+
+	// Find width & height
+	h := len(lines)
+	w := 0
+	for _, l := range lines {
+		if len(l) > w {
+			w = len(l)
+		}
+	}
+
+	return &LogoWidget{
+		Box:              tview.NewBox(),
 		app:              app,
-		animationSpeed:   80 * time.Millisecond, // Default speed
+		animationRunning: false,
+		animationSpeed:   100 * time.Millisecond,
+		artLines:         lines,
+		width:            w,
+		height:           h,
 	}
-	return logo
 }
 
-// Draw renders the widget.
+// Draw renders the ASCII art inside the widget's box.
+
 func (l *LogoWidget) Draw(screen tcell.Screen) {
-	l.Box.Draw(screen) // Draw the container box.
+	l.Box.DrawForSubclass(screen, l)
+	x, y, w, h := l.GetInnerRect() // full inner rectangle
 
-	x, y, width, height := l.GetInnerRect()
-	if width <= 0 || height <= 0 {
-		return
-	}
+	// Calculate top-left corner to center the logo
+	startX := x + (w-l.width)/2
+	startY := y + (h-l.height)/2
 
-	lines := strings.Split(l.animationFrames[l.currentFrame], "\n")
-	startY := y + (height-len(lines))/2 // Center vertically
+	staticStep := time.Now().UnixNano() / int64(5e7) // ~20 FPS
+	phase := int(staticStep % int64(l.width))
 
-	for i, line := range lines {
-		// Center each line horizontally
-		startX := x + (width-getVisibleLength(line))/2
-		tview.Print(screen, line, startX, startY+i, width, tview.AlignLeft, tview.Styles.PrimaryTextColor)
+	for row, line := range l.artLines {
+		for col, ch := range line {
+			if ch == ' ' {
+				continue
+			}
+
+			color := dimColor
+			if abs(col-phase) < 2 {
+				color = brightColor
+			}
+
+			tview.Print(screen, string(ch), startX+col, startY+row, 1, tview.AlignLeft, color)
+		}
 	}
 }
 
-// StartAnimation begins the animation loop.
+// StartAnimation starts the shimmer animation.
 func (l *LogoWidget) StartAnimation() {
 	if l.animationRunning {
 		return
 	}
 	l.animationRunning = true
+
 	go func() {
 		for l.animationRunning {
-			l.currentFrame++
-			// After the intro animation, loop through the flicker frames.
-			// The first 12 frames are the intro scan-line.
-			if l.currentFrame >= len(l.animationFrames) {
-				// Jump back to the start of the flicker loop (frame 12)
-				l.currentFrame = 12
-			}
-
-			// Adjust speed for different parts of the animation
-			if l.currentFrame < 12 {
-				l.animationSpeed = 80 * time.Millisecond // Faster for intro
-			} else {
-				l.animationSpeed = 150 * time.Millisecond // Slower for flicker
-			}
-
 			l.app.QueueUpdateDraw(func() {})
 			time.Sleep(l.animationSpeed)
 		}
@@ -86,91 +93,23 @@ func (l *LogoWidget) StopAnimation() {
 	l.animationRunning = false
 }
 
-// getVisibleLength calculates the length of a string, ignoring ANSI escape codes.
-func getVisibleLength(s string) int {
-	inEscape := false
-	length := 0
-	for _, r := range s {
-		if r == '\033' {
-			inEscape = true
-		} else if inEscape && (r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z') {
-			inEscape = false
-		} else if !inEscape {
-			length++
-		}
+func abs(x int) int {
+	if x < 0 {
+		return -x
 	}
-	return length
+	return x
 }
 
-// --- ASCII Art & Animation Frames ---
+// --- ASCII Art & Colors ---
 const (
-	brightCyan = "\033[1;96m"
-	dimCyan    = "\033[2;36m"
-	white      = "\033[1;97m"
-	reset      = "\033[0m"
+	brightColor = tcell.ColorWhite
+	dimColor    = tcell.ColorGray
 )
 
-// The base ASCII art provided by the user.
-// BUG FIX: Trimmed trailing spaces from each line to ensure proper centering.
-var baseArt = []string{
-	`██▓   ██▓  ▄████  ██░ ██ ▄▄▄█████▓ ██░ ██  ▒█████   █    ██    ██████ ▓█████`,
-	`▓██▒   ▓██▒ ██▒ ▀█▒▓██░ ██▒▓  ██▒ ▓▒▓██░ ██▒▒██▒  ██▒ ██  ▓██▒▒██    ▒ ▓█   ▀`,
-	`▒██░   ▒██▒▒██░▄▄▄░▒██▀▀██░▒ ▓██░ ▒░▒██▀▀██░▒██░  ██▒▓██  ▒██░░ ▓██▄   ▒███`,
-	`▒██░   ░██░░▓█  ██▓░▓█ ░██ ░ ▓██▓ ░ ░▓█ ░██ ▒██   ██░▓▓█  ░██░  ▒   ██▒▒▓█  ▄`,
-	`░██████▒░██░░▒▓███▀▒░▓█▒░██▓  ▒██▒ ░ ░▓█▒░██▓░ ████▓▒░▒▒█████▓ ▒██████▒▒░▒████▒`,
-	`░ ▒░▓  ░░▓   ░▒   ▒  ▒ ░░▒░▒  ▒ ░░    ▒ ░░▒░▒░ ▒░▒░▒░ ░▒▓▒ ▒ ▒ ▒ ▒▓▒ ▒ ░░░ ▒░ ░`,
-	`░ ░ ▒  ░ ▒ ░  ░   ░  ▒ ░▒░ ░    ░     ▒ ░▒░ ░  ░ ▒ ▒░ ░░▒░ ░ ░ ░ ░▒  ░ ░ ░ ░  ░`,
-	`  ░ ░    ▒ ░░ ░   ░  ░  ░░ ░    ░      ░  ░░ ░░ ░ ░ ▒   ░░░ ░ ░  ░  ░   ░  ░`,
-	`    ░  ░ ░      ░  ░  ░  ░      ░      ░  ░  ░    ░ ░     ░         ░     ░  ░`,
-}
-
-func generateLogoFrames() []string {
-	var frames []string
-	numLines := len(baseArt)
-	// rand.Seed is deprecated and no longer needed in modern Go.
-
-	// Phase 1: Scan-line reveal animation
-	for i := 0; i <= numLines+1; i++ {
-		var frameBuilder strings.Builder
-		for j, line := range baseArt {
-			if j < i-1 { // Lines above the scan-line
-				frameBuilder.WriteString(dimCyan + line + reset + "\n")
-			} else if j == i-1 { // The scan-line itself
-				frameBuilder.WriteString(white + line + reset + "\n")
-			} else {
-				frameBuilder.WriteString("\n") // Empty line
-			}
-		}
-		frames = append(frames, frameBuilder.String())
-	}
-
-	// Phase 2: Generate flicker/glitch frames for the loop
-	glitchChars := []rune{'░', '▒', '▓', '█'}
-	for i := 0; i < 20; i++ { // Generate 20 random flicker frames
-		var frameBuilder strings.Builder
-		for _, line := range baseArt {
-			runes := []rune(line)
-			for k := 0; k < len(runes); k++ {
-				// With a small probability, glitch a character
-				if runes[k] != ' ' && rand.Intn(100) < 3 {
-					// Change character
-					if rand.Intn(100) < 50 {
-						runes[k] = glitchChars[rand.Intn(len(glitchChars))]
-					}
-					// Change color
-					if rand.Intn(100) < 50 {
-						frameBuilder.WriteString(white + string(runes[k]) + reset)
-					} else {
-						frameBuilder.WriteString(brightCyan + string(runes[k]) + reset)
-					}
-				} else {
-					frameBuilder.WriteString(dimCyan + string(runes[k]) + reset)
-				}
-			}
-			frameBuilder.WriteString("\n")
-		}
-		frames = append(frames, frameBuilder.String())
-	}
-
-	return frames
-}
+// ASCII Logo (Slim Modern style) for "Lighthouse"
+const logoArt = `   __ _       _     _   _                          
+  / /(_) __ _| |__ | |_| |__   ___  _   _ ___  ___ 
+ / / | |/ _` + "`" + ` | '_ \| __| '_ \ / _ \| | | / __|/ _ \
+/ /__| | (_| | | | | |_| | | | (_) | |_| \__ \  __/
+\____/_|\__, |_| |_|\__|_| |_|\___/ \__,_|___/\___|
+        |___/                                       `
