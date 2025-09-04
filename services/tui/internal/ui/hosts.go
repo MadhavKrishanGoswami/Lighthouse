@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -34,15 +33,19 @@ func NewHostsPanel() *HostsPanel {
 	}
 
 	// Re-add the border and title to the panel itself.
-	hp.SetTitle(" Hosts ").SetBorder(true).SetTitleAlign(tview.AlignLeft)
+	hp.SetTitle(" Hosts ").SetBorder(true).SetTitleAlign(tview.AlignLeft).
+		SetBorderColor(Theme.BorderColor).
+		SetTitleColor(Theme.TitleColor).
+		SetBackgroundColor(Theme.PanelBackgroundColor)
 
 	// Set the headers for the table.
 	headers := []string{"Name", "IP", "MAC Address", "Last Heartbeat"}
 	for i, header := range headers {
 		cell := tview.NewTableCell(header).
-			SetTextColor(tcell.ColorYellow).
+			SetTextColor(Theme.TitleColor).
 			SetAlign(tview.AlignCenter).
 			SetSelectable(false).
+			SetBackgroundColor(Theme.PanelBackgroundColor).
 			SetExpansion(1) // Set expansion factor to 1 for equal distribution.
 		hp.SetCell(0, i, cell)
 	}
@@ -61,9 +64,10 @@ func (hp *HostsPanel) Update(hosts []Host) {
 	headers := []string{"Name", "IP", "MAC Address", "Last Heartbeat"}
 	for i, header := range headers {
 		cell := tview.NewTableCell(header).
-			SetTextColor(tcell.ColorYellow).
+			SetTextColor(Theme.TitleColor).
 			SetAlign(tview.AlignCenter).
 			SetSelectable(false).
+			SetBackgroundColor(Theme.PanelBackgroundColor).
 			SetExpansion(1) // Ensure headers also expand.
 		hp.SetCell(0, i, cell)
 	}
@@ -72,10 +76,10 @@ func (hp *HostsPanel) Update(hosts []Host) {
 	for i, host := range hosts {
 		row := i + 1
 		// Set Expansion(1) for all data cells to make them share space equally.
-		hp.SetCell(row, 0, tview.NewTableCell(host.Name).SetTextColor(tcell.ColorWhite).SetExpansion(3))
-		hp.SetCell(row, 1, tview.NewTableCell(host.IP).SetTextColor(tcell.ColorWhite).SetExpansion(2))
-		hp.SetCell(row, 2, tview.NewTableCell(host.MACAddress).SetTextColor(tcell.ColorWhite).SetExpansion(2))
-		hp.SetCell(row, 3, tview.NewTableCell(formatHeartbeat(host.LastHeartbeat)).SetTextColor(tcell.ColorGreen).SetExpansion(1))
+		hp.SetCell(row, 0, tview.NewTableCell(host.Name).SetTextColor(Theme.PrimaryTextColor).SetBackgroundColor(Theme.PanelBackgroundColor).SetExpansion(3))
+		hp.SetCell(row, 1, tview.NewTableCell(host.IP).SetTextColor(Theme.PrimaryTextColor).SetBackgroundColor(Theme.PanelBackgroundColor).SetExpansion(2))
+		hp.SetCell(row, 2, tview.NewTableCell(host.MACAddress).SetTextColor(Theme.PrimaryTextColor).SetBackgroundColor(Theme.PanelBackgroundColor).SetExpansion(2))
+		hp.SetCell(row, 3, tview.NewTableCell(formatHeartbeat(host.LastHeartbeat)).SetTextColor(Theme.AccentGoodColor).SetBackgroundColor(Theme.PanelBackgroundColor).SetExpansion(1))
 	}
 
 	// Select the first host by default if the list is not empty.

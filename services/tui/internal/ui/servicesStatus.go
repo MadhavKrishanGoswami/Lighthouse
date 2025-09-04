@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -39,7 +38,10 @@ func NewServicesPanel(app *App) *ServicesPanel {
 	flex := tview.NewFlex().
 		AddItem(table, 0, 1, false)
 
-	flex.SetBorder(true).SetTitle(" Services Status ")
+	flex.SetBorder(true).SetTitle(" Services Status ").
+		SetBorderColor(Theme.BorderColor).
+		SetTitleColor(Theme.TitleColor).
+		SetBackgroundColor(Theme.PanelBackgroundColor)
 
 	widget := &ServicesPanel{
 		Flex:       flex,
@@ -88,23 +90,24 @@ func (sp *ServicesPanel) Update(services Service) {
 	setServiceStatus := func(row int, name string, status bool) {
 		// Column 1: Service Name
 		sp.table.SetCell(row, 0, tview.NewTableCell(fmt.Sprintf(" %s", name)).
-			SetTextColor(tcell.ColorWhite).
+			SetTextColor(Theme.PrimaryTextColor).
+			SetBackgroundColor(Theme.PanelBackgroundColor).
 			SetAlign(tview.AlignLeft).
 			SetExpansion(1)) // Allow this column to expand
 
 		// Column 2: Status ("CONNECTED" / "DISCONNECTED")
 		statusCell := tview.NewTableCell("")
 		if status {
-			statusCell.SetText("CONNECTED").SetTextColor(tcell.ColorGreen)
+			statusCell.SetText("CONNECTED").SetTextColor(Theme.AccentGoodColor)
 		} else {
-			statusCell.SetText("DISCONNECTED").SetTextColor(tcell.ColorRed)
+			statusCell.SetText("DISCONNECTED").SetTextColor(Theme.AccentErrorColor)
 		}
 		statusCell.SetAlign(tview.AlignLeft)
 		sp.table.SetCell(row, 1, statusCell)
 
 		// Column 3: Spinner
 		sp.table.SetCell(row, 2, tview.NewTableCell(spin+" ").
-			SetTextColor(tcell.ColorWhite).
+			SetTextColor(Theme.SecondaryTextColor).
 			SetAlign(tview.AlignRight))
 	}
 
@@ -115,14 +118,16 @@ func (sp *ServicesPanel) Update(services Service) {
 
 	// Add a separate, styled row for "Total Hosts".
 	sp.table.SetCell(3, 0, tview.NewTableCell(" Total Hosts").
-		SetTextColor(tcell.ColorYellow).
+		SetTextColor(Theme.TitleColor).
+		SetBackgroundColor(Theme.PanelBackgroundColor).
 		SetAlign(tview.AlignLeft))
 
 	sp.table.SetCell(3, 1, tview.NewTableCell(fmt.Sprintf("%d", services.TotalHosts)).
-		SetTextColor(tcell.ColorYellow).
+		SetTextColor(Theme.PrimaryTextColor).
+		SetBackgroundColor(Theme.PanelBackgroundColor).
 		SetAlign(tview.AlignLeft))
 
 	sp.table.SetCell(3, 2, tview.NewTableCell(spin+" ").
-		SetTextColor(tcell.ColorWhite).
+		SetTextColor(Theme.SecondaryTextColor).
 		SetAlign(tview.AlignRight))
 }

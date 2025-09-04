@@ -33,7 +33,7 @@ func NewCreditWidget(username, twitter string) *CreditWidget {
 	}
 
 	// Corner box content with GitHub cat + username + Twitter
-	text := fmt.Sprintf("\n🐱 %s\n🐦 @%s", username, twitter)
+	text := fmt.Sprintf("\n[white]🐱 %s\n[white]🐦 @%s", username, twitter)
 	widget.SetText(text)
 
 	// Border and title
@@ -41,6 +41,9 @@ func NewCreditWidget(username, twitter string) *CreditWidget {
 	widget.SetTitle("Made with 💖 by")
 	widget.SetTitleAlign(tview.AlignCenter)
 	widget.SetBorderPadding(0, 0, 1, 1)
+	widget.SetBorderColor(Theme.BorderColor)
+	widget.SetTitleColor(Theme.TitleColor)
+	widget.SetBackgroundColor(Theme.PanelBackgroundColor)
 
 	// Interactive: open GitHub or Twitter on Enter / Ctrl+Enter
 	widget.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {

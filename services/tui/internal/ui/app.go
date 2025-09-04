@@ -3,6 +3,7 @@ package ui
 import (
 	"time"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -25,6 +26,20 @@ func NewApp() *App {
 		Application: tview.NewApplication(),
 	}
 
+	// Apply global theme before building components
+	ApplyLighthouseTheme()
+	app.SetBeforeDrawFunc(func(screen tcell.Screen) bool {
+		// Fill background with app background color
+		style := tcell.StyleDefault.Background(Theme.AppBackgroundColor).Foreground(Theme.PrimaryTextColor)
+		w, h := screen.Size()
+		for y := 0; y < h; y++ {
+			for x := 0; x < w; x++ {
+				screen.SetContent(x, y, ' ', nil, style)
+			}
+		}
+		return false
+	})
+
 	// --- Initialize UI components ---
 	app.logo = NewLogoWidget(app)
 	app.hosts = NewHostsPanel()
@@ -44,6 +59,8 @@ func NewApp() *App {
 	})
 
 	// --- Setup the main layout ---
+
+	// Focus handling skipped (tview does not expose direct global focus hook)
 	app.setupLayout()
 
 	// --- Load initial data and set initial focus ---
@@ -54,7 +71,7 @@ func NewApp() *App {
 	app.SetFocus(app.hosts)
 	app.servicesStatus.Update(fetchMockServices())
 	app.logs.SafeLogSimulator(fetchMOckLogs(), 5)
-
+	// --- Themes (already applied earlier) ---
 	return app
 }
 
@@ -81,6 +98,7 @@ func (a *App) setupLayout() {
 	a.root = tview.NewFlex().
 		AddItem(leftColumn, 0, 7, true).
 		AddItem(rightColumn, 0, 13, false)
+	// Background handled in SetBeforeDrawFunc
 
 	a.SetRoot(a.root, true).EnableMouse(true)
 }

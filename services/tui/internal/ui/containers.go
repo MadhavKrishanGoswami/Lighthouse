@@ -31,7 +31,10 @@ func NewContainersPanel(app *App) *ContainersPanel {
 		app:   app,
 	}
 
-	cp.SetTitle(" Containers ").SetBorder(true).SetTitleAlign(tview.AlignLeft)
+	cp.SetTitle(" Containers ").SetBorder(true).SetTitleAlign(tview.AlignLeft).
+		SetBorderColor(Theme.BorderColor).
+		SetTitleColor(Theme.TitleColor).
+		SetBackgroundColor(Theme.PanelBackgroundColor)
 	cp.SetInputCapture(cp.handleInput)
 
 	return cp
@@ -48,7 +51,8 @@ func (cp *ContainersPanel) Update(containers []Container) {
 	for i, h := range headers {
 		cp.SetCell(0, i,
 			tview.NewTableCell(h).
-				SetTextColor(tcell.ColorYellow).
+				SetTextColor(Theme.TitleColor).
+				SetBackgroundColor(Theme.PanelBackgroundColor).
 				SetAlign(tview.AlignCenter).
 				SetSelectable(false))
 	}
@@ -64,9 +68,9 @@ func (cp *ContainersPanel) Update(containers []Container) {
 }
 
 func (cp *ContainersPanel) drawRow(row int, c Container) {
-	textColor := tcell.ColorYellow
+	textColor := Theme.PrimaryTextColor
 	if c.IsUpdating {
-		textColor = tcell.ColorYellow
+		textColor = Theme.AccentWarningColor
 	}
 
 	// Name
@@ -81,12 +85,12 @@ func (cp *ContainersPanel) drawRow(row int, c Container) {
 	cp.SetCell(row, 1, tview.NewTableCell(imageName).SetTextColor(textColor).SetExpansion(1))
 
 	// Status
-	statusColor := tcell.ColorRed
+	statusColor := Theme.AccentErrorColor
 	if strings.Contains(strings.ToLower(c.Status), "running") {
-		statusColor = tcell.ColorGreen
+		statusColor = Theme.AccentGoodColor
 	}
 	if c.IsUpdating {
-		statusColor = tcell.ColorYellow
+		statusColor = Theme.AccentWarningColor
 	}
 	cp.SetCell(row, 2, tview.NewTableCell(c.Status).SetTextColor(statusColor).SetAlign(tview.AlignCenter).SetExpansion(1))
 
@@ -95,9 +99,9 @@ func (cp *ContainersPanel) drawRow(row int, c Container) {
 	watchColor := textColor
 	if c.IsWatching {
 		watchText = "Yes"
-		watchColor = tcell.ColorYellow
+		watchColor = Theme.AccentWarningColor
 		if c.IsUpdating {
-			watchColor = tcell.ColorYellow
+			watchColor = Theme.AccentWarningColor
 		}
 	}
 	cp.SetCell(row, 3, tview.NewTableCell(watchText).SetTextColor(watchColor).SetAlign(tview.AlignCenter))

@@ -22,11 +22,18 @@ func NewLogsPanel(app *App) *LogsPanel {
 		SetChangedFunc(func() {
 			app.Draw() // redraw when text changes
 		})
+	textView.SetBackgroundColor(Theme.PanelBackgroundColor)
 
 	flex := tview.NewFlex().
 		AddItem(textView, 0, 1, false)
 
-	flex.SetBorder(true).SetTitle(" Logs ")
+	flex.SetBorder(true).SetTitle(" Logs ").
+		SetBorderColor(Theme.BorderColor).
+		SetTitleColor(Theme.TitleColor).
+		SetBackgroundColor(Theme.PanelBackgroundColor).
+		SetBorderColor(Theme.BorderColor).
+		SetTitleColor(Theme.TitleColor).
+		SetBackgroundColor(Theme.PanelBackgroundColor)
 
 	return &LogsPanel{
 		Flex:     flex,

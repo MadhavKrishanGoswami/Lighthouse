@@ -22,13 +22,17 @@ func NewCronWidget(app *App) *CronWidget {
 	intervalView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter)
+	intervalView.SetBackgroundColor(Theme.PanelBackgroundColor)
 
 	// Main layout is a simple Flex container to help with centering.
 	flex := tview.NewFlex().
 		AddItem(intervalView, 0, 1, true)
 
 	// Changed the title to reflect the new purpose.
-	flex.SetBorder(true).SetTitle(" Cron Interval ")
+	flex.SetBorder(true).SetTitle(" Cron Interval ").
+		SetBorderColor(Theme.BorderColor).
+		SetTitleColor(Theme.TitleColor).
+		SetBackgroundColor(Theme.PanelBackgroundColor)
 
 	widget := &CronWidget{
 		Flex:         flex,
