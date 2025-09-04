@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"time"
-
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -70,8 +68,26 @@ func NewApp() *App {
 	app.hosts.Update(initialHosts)
 	app.SetFocus(app.hosts)
 	app.servicesStatus.Update(fetchMockServices())
-	app.logs.SafeLogSimulator(fetchMOckLogs(), 5)
-	// --- Themes (already applied earlier) ---
+	app.logs.SafeLogSimulator(fetchMockLogs(), 5)
+
+	// --- Global key handler for numeric switching ---
+	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Rune() {
+		case '1':
+			app.SetFocus(app.hosts)
+		case '2':
+			app.SetFocus(app.containers)
+		case '3':
+			app.SetFocus(app.logs)
+		case '4':
+			app.SetFocus(app.servicesStatus)
+		case '5':
+			app.SetFocus(app.cron)
+		case '6':
+			app.SetFocus(app.credits)
+		}
+		return event
+	})
 	return app
 }
 
@@ -114,42 +130,4 @@ func createPlaceholderBox(title string) *tview.Box {
 		SetBorder(true).
 		SetTitleAlign(tview.AlignCenter).
 		SetTitle(" " + title + " ")
-}
-
-// fetchMockHosts simulates fetching host data from an external source.
-func fetchMockHosts() []Host {
-	hosts := []Host{
-		{Name: "host1", IP: "192:168.1.10", LastHeartbeat: time.Now(), MACAddress: "00:1A:2B:3C:4D:5E"},
-		{Name: "host2", IP: "192:168.1.11", LastHeartbeat: time.Now().Add(-5 * time.Minute), MACAddress: "00:1A:2B:3C:4D:5F"},
-		{Name: "host3", IP: "192:168.1.12", LastHeartbeat: time.Now().Add(-10 * time.Minute), MACAddress: "00:1A:2B:3C:4D:60"},
-	}
-	return hosts
-}
-
-// fetchMockContainers simulates fetching container data for a given host.
-func fetchMockContainers(hostName string) []Container {
-	containers := []Container{
-		{Name: hostName + "-container1", Image: "nginx:latest", Status: "Running", IsWatching: true, IsUpdating: false},
-		{Name: hostName + "-container2", Image: "redis:alpine", Status: "Exited", IsWatching: false, IsUpdating: true},
-		{Name: hostName + "-container3", Image: "postgres:13", Status: "Running", IsWatching: true, IsUpdating: true},
-	}
-	return containers
-}
-
-func fetchMockServices() Service {
-	return Service{
-		OrchestratorStatus:    true,
-		RegistryMonitorStatus: false,
-		TotalHosts:            3,
-		DatabaseStatus:        true,
-	}
-}
-
-func fetchMOckLogs() []string {
-	return []string{
-		"[green]2024-10-01 12:00:00[white] - System initialized.",
-		"[yellow]2024-10-01 12:05:00[white] - Host host1 connected.",
-		"[red]2024-10-01 12:10:00[white] - Error fetching container data for host2.",
-		"[green]2024-10-01 12:15:00[white] - Cron job executed successfully.",
-	}
 }

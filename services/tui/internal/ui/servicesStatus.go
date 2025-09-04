@@ -38,7 +38,7 @@ func NewServicesPanel(app *App) *ServicesPanel {
 	flex := tview.NewFlex().
 		AddItem(table, 0, 1, false)
 
-	flex.SetBorder(true).SetTitle(" Services Status ").
+	flex.SetBorder(true).SetTitle("[4] Services Status ").
 		SetBorderColor(Theme.BorderColor).
 		SetTitleColor(Theme.TitleColor).
 		SetBackgroundColor(Theme.PanelBackgroundColor)

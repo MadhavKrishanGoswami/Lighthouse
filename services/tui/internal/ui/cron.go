@@ -29,7 +29,7 @@ func NewCronWidget(app *App) *CronWidget {
 		AddItem(intervalView, 0, 1, true)
 
 	// Changed the title to reflect the new purpose.
-	flex.SetBorder(true).SetTitle(" Cron Interval ").
+	flex.SetBorder(true).SetTitle("[5] Cron Interval ").
 		SetBorderColor(Theme.BorderColor).
 		SetTitleColor(Theme.TitleColor).
 		SetBackgroundColor(Theme.PanelBackgroundColor)

@@ -21,13 +21,18 @@ func NewLogsPanel(app *App) *LogsPanel {
 		SetScrollable(true).
 		SetChangedFunc(func() {
 			app.Draw() // redraw when text changes
-		})
+		}).SetWrap(true)
+	// Auto-scroll to the bottom on new messages
+	textView.SetChangedFunc(func() {
+		textView.ScrollToEnd()
+		app.Draw()
+	})
 	textView.SetBackgroundColor(Theme.PanelBackgroundColor)
 
 	flex := tview.NewFlex().
 		AddItem(textView, 0, 1, false)
 
-	flex.SetBorder(true).SetTitle(" Logs ").
+	flex.SetBorder(true).SetTitle("[3] Logs ").
 		SetBorderColor(Theme.BorderColor).
 		SetTitleColor(Theme.TitleColor).
 		SetBackgroundColor(Theme.PanelBackgroundColor).

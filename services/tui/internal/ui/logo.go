@@ -102,8 +102,8 @@ func abs(x int) int {
 
 // --- ASCII Art & Colors ---
 const (
-	brightColor = tcell.ColorWhite
-	dimColor    = tcell.ColorGray
+	brightColor = tcell.ColorDarkGray
+	dimColor    = tcell.ColorLightGray
 )
 
 // ASCII Logo (Slim Modern style) for "Lighthouse"

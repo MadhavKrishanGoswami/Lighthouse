@@ -38,7 +38,7 @@ func NewCreditWidget(username, twitter string) *CreditWidget {
 
 	// Border and title
 	widget.SetBorder(true)
-	widget.SetTitle("Made with 💖 by")
+	widget.SetTitle("[6] Made with 💖 by")
 	widget.SetTitleAlign(tview.AlignCenter)
 	widget.SetBorderPadding(0, 0, 1, 1)
 	widget.SetBorderColor(Theme.BorderColor)
