@@ -15,7 +15,7 @@ type App struct {
 	logs           *LogsPanel
 	cron           *CronWidget
 	servicesStatus *ServicesPanel
-	credits        *tview.Box
+	credits        *CreditWidget
 	root           *tview.Flex
 }
 
@@ -32,7 +32,7 @@ func NewApp() *App {
 	app.logs = NewLogsPanel(app)
 	app.cron = NewCronWidget(app)
 	app.servicesStatus = NewServicesPanel(app)
-	app.credits = createPlaceholderBox("Credits")
+	app.credits = NewCreditWidget("MadhavKrishanGoswami", "Goswamimadhav24") // Replace with your GitHub username
 
 	// --- Link panels together ---
 	// This is the updated link: when a host is selected, this function is called.
