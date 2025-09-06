@@ -8,6 +8,7 @@ import (
 
 	tui "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/tui"
 	db "github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/db/sqlc"
+	monitor "github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/monitor"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -98,10 +99,11 @@ func (s *Server) SetWatch(ctx context.Context, req *tui.SetWatchlistRequest) (*t
 
 // SetCronTime is a unary RPC that allows a client to set a cron time.
 func (s *Server) SetCronTime(ctx context.Context, req *tui.SetCronTimeRequest) (*tui.SetCronTimeResponse, error) {
-	log.Printf("[TUI Service] Received SetCronTime request. New time: %d", req.GetCronTime())
-	// TODO: Add logic to update the cron time in your config/database
+	log.Printf("[TUI Service] Received SetCronTime request. New time (hours): %d", req.GetCronTime())
+	// Update the orchestrator cron schedule immediately
+	monitor.SetCronTimeInHours(int(req.GetCronTime()))
 	return &tui.SetCronTimeResponse{
 		Success: true,
-		Message: fmt.Sprintf("Successfully set cron time to %d", req.GetCronTime()),
+		Message: fmt.Sprintf("Successfully set cron time to %d hour(s)", req.GetCronTime()),
 	}, nil
 }

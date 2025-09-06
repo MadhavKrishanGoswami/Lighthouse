@@ -14,10 +14,9 @@ import (
 	agentserver "github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/grpc/agent"
 )
 
-func CronMonitor(timeinmin int, grpcClient registry_monitor.RegistryMonitorServiceClient, queries *db.Queries, agentServer *agentserver.Server) {
+func CronMonitor(ctx context.Context, timeinmin int, grpcClient registry_monitor.RegistryMonitorServiceClient, queries *db.Queries, agentServer *agentserver.Server) {
 	// Convert minutes to duration
 	duration := time.Duration(timeinmin) * time.Minute
-	ctx := context.Background()
 	ticker := time.NewTicker(duration)
 	defer ticker.Stop()
 

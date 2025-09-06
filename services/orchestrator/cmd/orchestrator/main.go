@@ -81,6 +81,8 @@ func main() {
 	// -----starting cron job for monitoring after host agentserver is connected-----
 	go func() {
 		log.Println("Starting cron job for monitoring...")
+		// Wire dependencies so SetCronTime can restart correctly
+		monitor.SetRuntimeDeps(registryMonitorClient, queries, agentServer)
 		monitor.SetCronTimeInHours(1) // Set to 1 hour, can be made configurable
 		monitor.StartCronJob(registryMonitorClient, queries, agentServer)
 	}()
