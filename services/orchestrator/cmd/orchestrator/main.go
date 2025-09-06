@@ -79,11 +79,11 @@ func main() {
 		}
 	}()
 	// -----starting cron job for monitoring after host agentserver is connected-----
-	go monitor.CronMonitor(1, registryMonitorClient, queries, agentServer)
-	log.Println("Started cron job for monitoring container updates.")
-	if err != nil {
-		log.Printf("Error checking for updates: %v", err)
-	}
+	go func() {
+		log.Println("Starting cron job for monitoring...")
+		monitor.SetCronTimeInHours(1) // Set to 1 hour, can be made configurable
+		monitor.StartCronJob(registryMonitorClient, queries, agentServer)
+	}()
 	// Wait for a shutdown signal (e.g., Ctrl+C).
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

@@ -36,3 +36,8 @@ WHERE c.container_uid = $1;
 -- name: GetContainerbyContainerUID :one
 -- Retrieves a container by its UID
 SELECT * FROM containers WHERE container_uid = $1;
+-- name: SetWatchStatus :exec
+-- Updates the watch status of a container by its name and macid on the host
+UPDATE containers
+SET watch = $1
+WHERE name = $2 AND host_id = (SELECT id FROM hosts WHERE  mac_address = $3);

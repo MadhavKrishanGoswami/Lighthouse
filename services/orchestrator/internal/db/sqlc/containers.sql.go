@@ -138,7 +138,7 @@ type InsertContainerParams struct {
 	HostID       pgtype.UUID `json:"host_id"`
 	Name         string      `json:"name"`
 	Image        string      `json:"image"`
-	Ports        []string    `json:"ports"`
+	Ports        []byte      `json:"ports"`
 	EnvVars      []string    `json:"env_vars"`
 	Volumes      []string    `json:"volumes"`
 	Network      pgtype.Text `json:"network"`
@@ -170,4 +170,22 @@ func (q *Queries) InsertContainer(ctx context.Context, arg InsertContainerParams
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const setWatchStatus = `-- name: SetWatchStatus :exec
+UPDATE containers
+SET watch = $1
+WHERE name = $2 AND host_id = (SELECT id FROM hosts WHERE  mac_address = $3)
+`
+
+type SetWatchStatusParams struct {
+	Watch      pgtype.Bool `json:"watch"`
+	Name       string      `json:"name"`
+	MacAddress string      `json:"mac_address"`
+}
+
+// Updates the watch status of a container by its name and macid on the host
+func (q *Queries) SetWatchStatus(ctx context.Context, arg SetWatchStatusParams) error {
+	_, err := q.db.Exec(ctx, setWatchStatus, arg.Watch, arg.Name, arg.MacAddress)
+	return err
 }

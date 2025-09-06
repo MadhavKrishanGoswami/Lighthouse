@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"strconv"
 	"strings"
@@ -53,36 +54,41 @@ func CronMonitor(timeinmin int, grpcClient registry_monitor.RegistryMonitorServi
 						continue
 					}
 
-					// Convert DB stored ports ([]string) into []*orchestrator.PortMapping
+					// Convert DB stored ports ([]byte JSON) into []*orchestrator.PortMapping
 					var overridePorts []*orchestrator.PortMapping
-					for _, p := range container.Ports {
-						// expected format from DB: "hostIP:hostPort->containerPort/protocol"
-						parts := strings.Split(p, "->")
-						if len(parts) != 2 {
-							continue
-						}
-						// Left side = hostIP:hostPort
-						hostParts := strings.Split(parts[0], ":")
-						if len(hostParts) != 2 {
-							continue
-						}
-						hostIP := hostParts[0]
-						hostPort, _ := strconv.Atoi(hostParts[1])
+					var portStrings []string
+					if err := json.Unmarshal(container.Ports, &portStrings); err != nil {
+						log.Printf("Could not unmarshal ports for container %s: %v", image.ContainerUid, err)
+					} else {
+						for _, p := range portStrings {
+							// expected format from DB: "hostIP:hostPort->containerPort/protocol"
+							parts := strings.Split(p, "->")
+							if len(parts) != 2 {
+								continue
+							}
+							// Left side = hostIP:hostPort
+							hostParts := strings.Split(parts[0], ":")
+							if len(hostParts) != 2 {
+								continue
+							}
+							hostIP := hostParts[0]
+							hostPort, _ := strconv.Atoi(hostParts[1])
 
-						// Right side = containerPort/protocol
-						containerParts := strings.Split(parts[1], "/")
-						if len(containerParts) != 2 {
-							continue
-						}
-						containerPort, _ := strconv.Atoi(containerParts[0])
-						protocol := containerParts[1]
+							// Right side = containerPort/protocol
+							containerParts := strings.Split(parts[1], "/")
+							if len(containerParts) != 2 {
+								continue
+							}
+							containerPort, _ := strconv.Atoi(containerParts[0])
+							protocol := containerParts[1]
 
-						overridePorts = append(overridePorts, &orchestrator.PortMapping{
-							HostIp:        hostIP,
-							HostPort:      uint32(hostPort),
-							ContainerPort: uint32(containerPort),
-							Protocol:      protocol,
-						})
+							overridePorts = append(overridePorts, &orchestrator.PortMapping{
+								HostIp:        hostIP,
+								HostPort:      uint32(hostPort),
+								ContainerPort: uint32(containerPort),
+								Protocol:      protocol,
+							})
+						}
 					}
 
 					// Build update command

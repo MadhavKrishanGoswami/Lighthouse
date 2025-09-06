@@ -26,6 +26,8 @@ type Querier interface {
 	InsertHost(ctx context.Context, arg InsertHostParams) (Host, error)
 	// Updates the status of a deployment.
 	InsertUpdateStatus(ctx context.Context, arg InsertUpdateStatusParams) (UpdateStatus, error)
+	// Updates the watch status of a container by its name and macid on the host
+	SetWatchStatus(ctx context.Context, arg SetWatchStatusParams) error
 	// Updates the last heartbeat timestamp for a host identified by id.
 	UpdateHostLastHeartbeat(ctx context.Context, id pgtype.UUID) (Host, error)
 }

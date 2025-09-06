@@ -2,6 +2,7 @@ package agentserver
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -74,12 +75,17 @@ func (s *Server) RegisterHost(ctx context.Context, req *orchestrator.RegisterHos
 	}
 
 	for _, container := range req.Host.Containers {
+		portsBytes, err := json.Marshal(convertPortsToDBFormat(container.Ports))
+		if err != nil {
+			log.Printf("Failed to marshal ports for container %s: %v", container.Name, err)
+			portsBytes = []byte("[]") // Use empty JSON array as fallback
+		}
 		containerParams := db.InsertContainerParams{
 			ContainerUid: container.ContainerID,
 			HostID:       host.ID,
 			Name:         container.Name,
 			Image:        container.Image,
-			Ports:        convertPortsToDBFormat(container.Ports),
+			Ports:        portsBytes,
 			EnvVars:      container.EnvVars,
 			Volumes:      container.Volumes,
 			Network:      pgtype.Text{String: container.Network, Valid: true},
@@ -109,13 +115,18 @@ func (s *Server) Heartbeat(ctx context.Context, req *orchestrator.HeartbeatReque
 
 	activeContainerUIDs := make([]string, 0, len(req.Containers))
 	for _, c := range req.Containers {
+		portsBytes, err := json.Marshal(convertPortsToDBFormat(c.Ports))
+		if err != nil {
+			log.Printf("Failed to marshal ports for container %s: %v", c.Name, err)
+			portsBytes = []byte("[]") // Use empty JSON array as fallback
+		}
 		activeContainerUIDs = append(activeContainerUIDs, c.ContainerID)
 		containerParams := db.InsertContainerParams{
 			ContainerUid: c.ContainerID,
 			HostID:       host.ID,
 			Name:         c.Name,
 			Image:        c.Image,
-			Ports:        convertPortsToDBFormat(c.Ports),
+			Ports:        portsBytes,
 			EnvVars:      c.EnvVars,
 			Volumes:      c.Volumes,
 			Network:      pgtype.Text{String: c.Network, Valid: true},

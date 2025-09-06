@@ -10,18 +10,24 @@ type App struct {
 	*tview.Application
 	logo           *LogoWidget
 	hosts          *HostsPanel
-	containers     *ContainersPanel // Changed from *tview.Box
+	containers     *ContainersPanel
 	logs           *LogsPanel
 	cron           *CronWidget
 	servicesStatus *ServicesPanel
 	credits        *CreditWidget
 	root           *tview.Flex
+
+	// Real-time data management
+	containersMap   map[string][]Container // MAC address -> containers
+	selectedHostMAC string
+	hostsData       []Host // Store current hosts data
 }
 
 // NewApp creates and initializes the TUI application and its layout.
 func NewApp() *App {
 	app := &App{
-		Application: tview.NewApplication(),
+		Application:   tview.NewApplication(),
+		containersMap: make(map[string][]Container),
 	}
 
 	// Apply global theme before building components
@@ -41,34 +47,30 @@ func NewApp() *App {
 	// --- Initialize UI components ---
 	app.logo = NewLogoWidget(app)
 	app.hosts = NewHostsPanel()
-	app.containers = NewContainersPanel(app) // Initialize the real ContainersPanel
+	app.containers = NewContainersPanel(app)
 	app.logs = NewLogsPanel(app)
 	app.cron = NewCronWidget(app)
 	app.servicesStatus = NewServicesPanel(app)
-	app.credits = NewCreditWidget("MadhavKrishanGoswami", "Goswamimadhav24") // Replace with your GitHub username
+	app.credits = NewCreditWidget("MadhavKrishanGoswami", "Goswamimadhav24")
 
 	// --- Link panels together ---
-	// This is the updated link: when a host is selected, this function is called.
-	app.hosts.SetHostSelectedFunc(func(hostName string) {
-		// Fetch the mock container data for the selected host.
-		containersForHost := fetchMockContainers(hostName)
-		// Update the containers panel with the new data.
-		app.containers.Update(containersForHost)
+	// Updated to use MAC address instead of hostname for container lookup
+	app.hosts.SetHostSelectedFunc(func(hostMAC string) {
+		app.selectedHostMAC = hostMAC
+		// Look up containers for the selected host by MAC address
+		if containers, exists := app.containersMap[hostMAC]; exists {
+			app.containers.Update(containers)
+		} else {
+			// Clear containers panel if no containers found for this host
+			app.containers.Update([]Container{})
+		}
 	})
 
 	// --- Setup the main layout ---
-
-	// Focus handling skipped (tview does not expose direct global focus hook)
 	app.setupLayout()
 
-	// --- Load initial data and set initial focus ---
-	// This function runs safely after the first screen draw to prevent deadlocks.
-
-	initialHosts := fetchMockHosts()
-	app.hosts.Update(initialHosts)
+	// --- Set initial focus ---
 	app.SetFocus(app.hosts)
-	app.servicesStatus.Update(fetchMockServices())
-	app.logs.SafeLogSimulator(fetchMockLogs(), 5)
 
 	// --- Global key handler for numeric switching ---
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
@@ -114,7 +116,6 @@ func (a *App) setupLayout() {
 	a.root = tview.NewFlex().
 		AddItem(leftColumn, 0, 7, true).
 		AddItem(rightColumn, 0, 13, false)
-	// Background handled in SetBeforeDrawFunc
 
 	a.SetRoot(a.root, true).EnableMouse(true)
 }
@@ -122,6 +123,70 @@ func (a *App) setupLayout() {
 // Run starts the TUI application.
 func (a *App) Run() error {
 	return a.Application.Run()
+}
+
+// === Real-time Data Update Methods ===
+
+// UpdateHosts updates the hosts panel with new data from gRPC stream
+func (app *App) UpdateHosts(hosts []Host) {
+	app.hostsData = hosts
+	app.hosts.Update(hosts)
+
+	// If no host is currently selected and we have hosts, select the first one
+	if app.selectedHostMAC == "" && len(hosts) > 0 {
+		app.selectedHostMAC = hosts[0].MACAddress
+		if containers, exists := app.containersMap[app.selectedHostMAC]; exists {
+			app.containers.Update(containers)
+		}
+	}
+}
+
+// UpdateContainersMap stores container data for all hosts from gRPC stream
+func (app *App) UpdateContainersMap(containersMap map[string][]Container) {
+	app.containersMap = containersMap
+
+	// If a host is currently selected, update the containers panel
+	if app.selectedHostMAC != "" {
+		if containers, exists := containersMap[app.selectedHostMAC]; exists {
+			app.containers.Update(containers)
+		} else {
+			// Clear containers if selected host has no containers
+			app.containers.Update([]Container{})
+		}
+	}
+}
+
+// UpdateServices updates the services status panel with new data
+func (app *App) UpdateServices(service Service) {
+	app.servicesStatus.Update(service)
+}
+
+// UpdateLogs adds new log entry to the logs panel
+func (app *App) UpdateLogs(logEntry string) {
+	app.logs.AddLog(logEntry)
+}
+
+// UpdateCronTime updates the cron widget with new cron time
+func (app *App) UpdateCronTime(cronTime int32) {
+	app.cron.UpdateTime(cronTime)
+}
+
+// GetSelectedHostMAC returns the currently selected host's MAC address
+func (app *App) GetSelectedHostMAC() string {
+	return app.selectedHostMAC
+}
+
+// SetWatchStatus updates the watch status for a specific container
+func (app *App) SetWatchStatus(containerName string, watch bool) {
+	if containers, exists := app.containersMap[app.selectedHostMAC]; exists {
+		for i, container := range containers {
+			if container.Name == containerName {
+				containers[i].IsWatching = watch
+				break
+			}
+		}
+		app.containers.Update(containers)
+	}
 }
 
 // createPlaceholderBox is a helper function to create a styled box for layout purposes.

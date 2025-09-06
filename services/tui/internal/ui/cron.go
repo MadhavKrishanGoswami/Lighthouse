@@ -83,3 +83,9 @@ func (cw *CronWidget) updateIntervalText() {
 
 	cw.intervalView.SetText(text)
 }
+
+func (cw *CronWidget) UpdateTime(hours int32) {
+	// Convert seconds to duration
+	cw.duration = time.Duration(hours) * time.Hour
+	cw.updateIntervalText()
+}
