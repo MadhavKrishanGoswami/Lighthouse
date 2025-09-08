@@ -1,13 +1,20 @@
 syntax = "proto3";
 
-package orchestrator;
+package tui;
 
-option go_package = "github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator"; 
+option go_package = "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/tui"; 
 
 // ====================
 // Messages
 // ====================
-enum Status {
+
+
+
+
+message ContainerInfo {
+  string name = 1;
+  string image = 2;
+  enum Status {
   UNKNOWN = 0;
   RUNNING = 1;
   STOPPED = 2;
@@ -15,62 +22,61 @@ enum Status {
   RESTARTING = 4;
   EXITED = 5;
   DEAD = 6;
-}
-enum services{
-  ORCHESTRATOR = 0;
-  HOST_AGENT = 1;
-  REGISTRY_Monitor = 2;
-  Database = 3;
-}
-
-
-container {
-  string name = 1;
-  string image = 2;
+  }
   Status status = 3;
   bool watch = 4;
 }
 
-HostInfo {
+message HostInfo {
   string mac_address = 1;
   string hostname = 2;
   string ip_address = 3;
   string lastHeartbeat = 4;
-  repeated ContainerInfo container = 5;
+  repeated ContainerInfo containers = 5;
 }
-HostList {
+message HostList {
   repeated HostInfo hosts = 1;
 }
-servicesStatus {
-  services service = 1;
+message servicesStatus {
+  enum services{
+  ORCHESTRATOR = 0;
+  REGISTRY_Monitor = 1;
+  Database = 2;
+ }
+  services services_status = 1;
   bool status = 2;
 }
 
 //===================
 // Request / Response Wrappers
 // ===================
-DataStreamSend {
+message DataStreamSend {
   HostList host_list = 1;
-  string logs = 2;
+  string logs = 2; // legacy logs field (will be trimmed or empty once StreamLogs used)
   int32 cron_time = 3;
   repeated servicesStatus services_status = 4;
 }
-DataStreamReceived {
+message DataStreamReceived {
   string ack = 1;
 }
-SetWatchlistRequest {
+
+// Streaming log line (simple)
+message LogLine {
+  string line = 1; // already timestamped string
+}
+message SetWatchlistRequest {
   string container_name = 1;
   string host_mac = 2;
-  bool watch = 2;
+  bool watch = 3;
 }
-SetWatchlistResponse {
+message SetWatchlistResponse {
   bool success = 1;
   string message = 2;
 }
-SetCronTimeRequest {
+message SetCronTimeRequest {
   int32 cron_time = 1;
 }
-SetCronTimeResponse {
+message  SetCronTimeResponse {
   bool success = 1;
   string message = 2;
 }
@@ -79,10 +85,12 @@ SetCronTimeResponse {
 
 
 // ===================
-// services 
+// service
 // =================
-services OrchestratorService {
-  rpc SendDatastream(stream DataStreamSend) returns (stream DataStreamReceived);
+service TUIService {
+  rpc SendDatastream(stream DataStreamReceived) returns (stream DataStreamSend);
+  // Dedicated log stream (server -> client). Client sends empty acks just to keepalive.
+  rpc StreamLogs(stream DataStreamReceived) returns (stream LogLine);
   rpc SetWatch(SetWatchlistRequest) returns (SetWatchlistResponse);
   rpc SetCronTime(SetCronTimeRequest) returns (SetCronTimeResponse);
 }
