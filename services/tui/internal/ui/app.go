@@ -73,7 +73,14 @@ func NewApp() *App {
 	app.SetFocus(app.hosts)
 
 	// --- Global key handler for numeric switching ---
+	// Global input capture including quit keys
+	// Global input capture including quit keys
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		// Quit keys
+		if event.Key() == tcell.KeyCtrlC || event.Rune() == 'q' || event.Rune() == 'Q' {
+			app.Stop()
+			return nil
+		}
 		switch event.Rune() {
 		case '1':
 			app.SetFocus(app.hosts)
