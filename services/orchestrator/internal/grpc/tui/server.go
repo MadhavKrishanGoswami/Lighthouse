@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-
 	"sync"
 	"sync/atomic"
 	"time"
@@ -21,9 +20,17 @@ import (
 type Server struct {
 	TUILogsBufferSize int
 	tui.UnimplementedTUIServiceServer
-	DB      *db.Queries
-	mu      sync.Mutex
+	DB *db.Queries
+
+	mu sync.Mutex
+	// data streams (snapshots)
 	streams map[string]tui.TUIService_SendDatastreamServer
+
+	// log streaming clients
+	logMu              sync.Mutex
+	logStreams         map[string]tui.TUIService_StreamLogsServer
+	logBroadcasterOnce sync.Once
+	logCh              chan string // internal channel to accept log lines
 }
 
 // NewServer creates a new TUI server instance.
@@ -32,6 +39,8 @@ func NewServer(queries *db.Queries) *Server {
 		TUILogsBufferSize: 50,
 		DB:                queries,
 		streams:           make(map[string]tui.TUIService_SendDatastreamServer),
+		logStreams:        make(map[string]tui.TUIService_StreamLogsServer),
+		logCh:             make(chan string, 256),
 	}
 }
 
@@ -55,7 +64,7 @@ func (s *Server) RemoveStream(id string) {
 	}
 }
 
-// Broadcast sends a message to all connected streams.
+// Broadcast sends a message to all connected data streams (snapshot channel).
 func (s *Server) Broadcast(message *tui.DataStreamSend) {
 	s.mu.Lock()
 	streams := make(map[string]tui.TUIService_SendDatastreamServer, len(s.streams))
@@ -89,6 +98,85 @@ func (s *Server) GracefulShutdown() {
 	log.Println("[TUI Service] All streams closed.")
 }
 
+// AddLogStream registers a new log stream client
+func (s *Server) addLogStream(stream tui.TUIService_StreamLogsServer) string {
+	s.logMu.Lock()
+	defer s.logMu.Unlock()
+	id := uuid.New().String()
+	s.logStreams[id] = stream
+	log.Printf("[TUI Service] Log stream added: %s total=%d", id, len(s.logStreams))
+	return id
+}
+
+func (s *Server) removeLogStream(id string) {
+	s.logMu.Lock()
+	defer s.logMu.Unlock()
+	if _, ok := s.logStreams[id]; ok {
+		delete(s.logStreams, id)
+		log.Printf("[TUI Service] Log stream removed: %s total=%d", id, len(s.logStreams))
+	}
+}
+
+// PushLog can be called by other packages to enqueue a log line for streaming.
+// It is safe & non-blocking (drops if buffer full).
+func (s *Server) PushLog(format string, args ...any) {
+	if s == nil || s.logCh == nil {
+		return
+	}
+	line := fmt.Sprintf(format, args...)
+	select {
+	case s.logCh <- line:
+	default:
+		// buffer full, drop
+	}
+}
+
+// startLogBroadcaster launches a single goroutine (once) that fan-outs log lines to all log streams.
+func (s *Server) startLogBroadcaster() {
+	s.logBroadcasterOnce.Do(func() {
+		go func() {
+			for line := range s.logCh {
+				// snapshot of current log streams
+				s.logMu.Lock()
+				streams := make(map[string]tui.TUIService_StreamLogsServer, len(s.logStreams))
+				for id, st := range s.logStreams {
+					streams[id] = st
+				}
+				s.logMu.Unlock()
+				msg := &tui.LogLine{Line: fmt.Sprintf("%s | %s", time.Now().Format(time.RFC3339), line)}
+				for id, st := range streams {
+					if err := st.Send(msg); err != nil {
+						log.Printf("[TUI Service] log send failed stream=%s err=%v removing", id, err)
+						s.removeLogStream(id)
+					}
+				}
+			}
+		}()
+	})
+}
+
+// StreamLogs implements the dedicated log streaming RPC (server -> client with client keepalive acks)
+func (s *Server) StreamLogs(stream tui.TUIService_StreamLogsServer) error {
+	clientID := s.addLogStream(stream)
+	defer s.removeLogStream(clientID)
+	// ensure broadcaster is running
+	s.startLogBroadcaster()
+	// initial hello
+	s.PushLog("log client connected id=%s", clientID)
+	// read loop: client may send acks/heartbeats only
+	for {
+		in, err := stream.Recv()
+		if err != nil {
+			// recv ended (EOF or error) -> exit
+			s.PushLog("log client disconnected id=%s err=%v", clientID, err)
+			return nil
+		}
+		if ack := in.GetAck(); ack != "" {
+			// could record metrics, for now just ignore / maybe respond with noop
+		}
+	}
+}
+
 // SendDatastream handles the bidirectional streaming RPC.
 func (s *Server) SendDatastream(stream tui.TUIService_SendDatastreamServer) error {
 	var heartbeatCount uint64
@@ -112,6 +200,8 @@ func (s *Server) SendDatastream(stream tui.TUIService_SendDatastreamServer) erro
 	clientID := s.AddStream(stream)
 	defer s.RemoveStream(clientID)
 	log.Printf("[TUI Service] Client connected: %s", clientID)
+	// also push to log stream
+	s.PushLog("datastream client connected id=%s", clientID)
 
 	snapshotReq := make(chan string, 8) // reason channel
 
@@ -122,6 +212,7 @@ func (s *Server) SendDatastream(stream tui.TUIService_SendDatastreamServer) erro
 			if err != nil {
 				setLog(fmt.Sprintf("recv loop ended: %v", err)) // record final state
 				log.Printf("[TUI Service] recv loop ended for %s: %v", clientID, err)
+				s.PushLog("datastream client disconnected id=%s err=%v", clientID, err)
 				return
 			}
 			if ack := in.GetAck(); ack != "" {
@@ -144,7 +235,7 @@ func (s *Server) SendDatastream(stream tui.TUIService_SendDatastreamServer) erro
 		// For each host fetch containers (N+1). Acceptable for small scale; optimize later with join.
 		containerRows := make(map[string][]db.Container)
 		for _, h := range hostRows {
-			rows, err := s.DB.GetAllContainersonHost(context.Background(), h.MacAddress)
+			rows, err := s.DB.GetAllContainersonHost(context.Background(), h.ID)
 			if err != nil {
 				log.Printf("[TUI Service] fetch containers for host %s: %v", h.MacAddress, err)
 				continue
@@ -183,7 +274,7 @@ func (s *Server) SendDatastream(stream tui.TUIService_SendDatastreamServer) erro
 		msg := &tui.DataStreamSend{
 			HostList:       &tui.HostList{Hosts: hostInfos},
 			Logs:           fmt.Sprintf("%s\n%s", getLog(), fmt.Sprintf("snapshot reason=%s hosts=%d", reason, len(hostInfos))),
-			CronTime:       int32(monitor.GetCronTimeInHours()),
+			CronTime:       int32(monitor.GetCronTime()),
 			ServicesStatus: servicesStatus,
 		}
 		setLog(fmt.Sprintf("snapshot sent reason=%s hosts=%d", reason, len(hostInfos)))
