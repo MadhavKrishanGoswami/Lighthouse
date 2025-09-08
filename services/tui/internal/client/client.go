@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	orchestrator "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/tui"
+	tui "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/tui"
 
 	"google.golang.org/grpc"
 
@@ -15,8 +15,8 @@ import (
 
 // StartClient waits for the server to be ready using the new grpc.NewClient API.
 
-func StartClient() (orchestrator.TUIServiceClient, *grpc.ClientConn, error) {
-	addr := "localhost:50051"
+func StartClient() (tui.TUIServiceClient, *grpc.ClientConn, error) {
+	addr := "localhost:50051" // TODO: make configurable via env TUI_ORCHESTRATOR_ADDR
 
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -26,21 +26,20 @@ func StartClient() (orchestrator.TUIServiceClient, *grpc.ClientConn, error) {
 
 	var err error
 
+	deadline := time.Now().Add(10 * time.Second)
 	for {
-
 		conn, err = grpc.NewClient(addr, opts...)
-
 		if err == nil {
 			break
 		}
-
-		log.Printf("Waiting for gRPC server at %s... retrying in 2s", addr)
-
+		if time.Now().After(deadline) {
+			return nil, nil, err
+		}
+		log.Printf("Waiting for gRPC server at %s... retrying in 2s (err=%v)", addr, err)
 		time.Sleep(2 * time.Second)
-
 	}
 
-	client := orchestrator.NewTUIServiceClient(conn)
+	client := tui.NewTUIServiceClient(conn)
 
 	log.Printf("gRPC client connected to orchestrator at %s", addr)
 

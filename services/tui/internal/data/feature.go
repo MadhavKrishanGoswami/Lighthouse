@@ -6,150 +6,122 @@ import (
 	"log"
 	"time"
 
-	orchestrator "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/tui"
+	tuiSvc "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/tui"
 	"github.com/MadhavKrishanGoswami/Lighthouse/services/tui/internal/ui"
 )
 
+// DataManager manages the lifecycle of the TUI data stream.
+// After proto update: client sends DataStreamReceived (acks/heartbeats),
+// server sends DataStreamSend (snapshots). Heartbeat every 5s.
+
 type DataManager struct {
-	client orchestrator.TUIServiceClient
+	client tuiSvc.TUIServiceClient
 	app    *ui.App
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
-func NewDataManager(client orchestrator.TUIServiceClient, app *ui.App) *DataManager {
+func NewDataManager(client tuiSvc.TUIServiceClient, app *ui.App) *DataManager {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &DataManager{
-		client: client,
-		app:    app,
-		ctx:    ctx,
-		cancel: cancel,
-	}
+	return &DataManager{client: client, app: app, ctx: ctx, cancel: cancel}
 }
 
-// StartDataStream initiates the gRPC streaming connection
+// StartDataStream sets up bidirectional stream: we read server snapshots and send heartbeats.
 func (dm *DataManager) StartDataStream() error {
+	log.Println("[TUI] starting data stream...")
 	stream, err := dm.client.SendDatastream(dm.ctx)
 	if err != nil {
 		return err
 	}
 
-	// Send initial acknowledgment
-	err = stream.Send(&orchestrator.DataStreamreq{
-		Ack: "TUI_READY",
-	})
-	if err != nil {
-		return err
-	}
-
-	// Start receiving data in goroutine
-	go dm.handleDataStream(stream)
-
-	// Send periodic heartbeats
+	// Start receiver
+	go dm.receiveSnapshots(stream)
+	log.Println("[TUI] snapshot receiver started")
+	// Start heartbeats
 	go dm.sendHeartbeats(stream)
-
 	return nil
 }
 
-// handleDataStream processes incoming data from the server
-func (dm *DataManager) handleDataStream(stream orchestrator.TUIService_SendDatastreamClient) {
+// receiveSnapshots listens for DataStreamSend messages from server.
+func (dm *DataManager) receiveSnapshots(stream tuiSvc.TUIService_SendDatastreamClient) {
+	// (removed unused count variable)
 	for {
 		select {
 		case <-dm.ctx.Done():
 			return
 		default:
-			data, err := stream.Recv()
+			msg, err := stream.Recv()
+			if err == nil {
+				log.Printf("[TUI] snapshot received: hosts=%d logs_len=%d", len(msg.GetHostList().GetHosts()), len(msg.GetLogs()))
+			}
 			if err == io.EOF {
-				log.Println("Stream ended by server")
+				log.Println("TUI stream closed by server")
 				return
 			}
 			if err != nil {
-				log.Printf("Error receiving  %v", err)
-				continue
+				log.Printf("TUI stream receive error: %v", err)
+				return
 			}
-
-			// Process received data
-			dm.processDataStream(data)
+			dm.processSnapshot(msg)
 		}
 	}
 }
 
-// processDataStream updates UI components with new data
-func (dm *DataManager) processDataStream(data *orchestrator.DataStreamSend) {
-	// Update hosts data
-	if len(data.GetHostList()) > 0 {
-		hosts := make([]ui.Host, 0)
-		containersMap := make(map[string][]ui.Container)
-
-		for _, hostList := range data.GetHostList() {
-			for _, hostInfo := range hostList.GetHosts() {
-				// Convert host info
-				host := ConvertHostInfo(hostInfo)
-				hosts = append(hosts, host)
-
-				// Convert container info for this host
-				containers := make([]ui.Container, 0)
-				for _, containerInfo := range hostInfo.GetContainer() {
-					container := ConvertContainerInfo(containerInfo)
-					containers = append(containers, container)
-				}
-				containersMap[host.MACAddress] = containers
+// sendHeartbeats periodically sends ack messages (DataStreamReceived) upstream.
+func (dm *DataManager) sendHeartbeats(stream tuiSvc.TUIService_SendDatastreamClient) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-dm.ctx.Done():
+			// attempt a final close-send
+			_ = stream.CloseSend()
+			return
+		case <-ticker.C:
+			if err := stream.Send(&tuiSvc.DataStreamReceived{Ack: "HEARTBEAT"}); err != nil {
+				log.Printf("Heartbeat send failed: %v", err)
+				return
 			}
 		}
+	}
+}
 
-		// Update UI on main thread
+// processSnapshot updates UI based on snapshot
+func (dm *DataManager) processSnapshot(data *tuiSvc.DataStreamSend) {
+	if hl := data.GetHostList(); hl != nil {
+		hosts := make([]ui.Host, 0, len(hl.GetHosts()))
+		containersMap := make(map[string][]ui.Container, len(hl.GetHosts()))
+		for _, hostInfo := range hl.GetHosts() {
+			host := ConvertHostInfo(hostInfo)
+			hosts = append(hosts, host)
+			containers := make([]ui.Container, 0, len(hostInfo.GetContainers()))
+			for _, cinfo := range hostInfo.GetContainers() {
+				containers = append(containers, ConvertContainerInfo(cinfo))
+			}
+			containersMap[host.MACAddress] = containers
+		}
 		dm.app.QueueUpdateDraw(func() {
 			dm.app.UpdateHosts(hosts)
 			dm.app.UpdateContainersMap(containersMap)
 		})
 	}
 
-	// Update services status
-	if len(data.GetServicesStatus()) > 0 {
-		service := ConvertServicesStatus(data.GetServicesStatus())
-		service.TotalHosts = len(data.GetHostList())
-
-		dm.app.QueueUpdateDraw(func() {
-			dm.app.UpdateServices(service)
-		})
-	}
-
-	// Update logs
-	if data.GetLogs() != "" {
-		dm.app.QueueUpdateDraw(func() {
-			dm.app.UpdateLogs(data.GetLogs())
-		})
-	}
-
-	// Update cron time
-	if data.GetCronTime() > 0 {
-		dm.app.QueueUpdateDraw(func() {
-			dm.app.UpdateCronTime(data.GetCronTime())
-		})
-	}
-}
-
-// sendHeartbeats sends periodic acknowledgments to keep stream alive
-func (dm *DataManager) sendHeartbeats(stream orchestrator.TUIService_SendDatastreamClient) {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-dm.ctx.Done():
-			return
-		case <-ticker.C:
-			err := stream.Send(&orchestrator.DataStreamreq{
-				Ack: "HEARTBEAT",
-			})
-			if err != nil {
-				log.Printf("Error sending heartbeat: %v", err)
-				return
-			}
+	if ss := data.GetServicesStatus(); len(ss) > 0 {
+		service := ConvertServicesStatus(ss)
+		if hl := data.GetHostList(); hl != nil {
+			service.TotalHosts = len(hl.GetHosts())
 		}
+		dm.app.QueueUpdateDraw(func() { dm.app.UpdateServices(service) })
+	}
+
+	if logs := data.GetLogs(); logs != "" {
+		dm.app.QueueUpdateDraw(func() { dm.app.UpdateLogs(logs) })
+	}
+
+	if ct := data.GetCronTime(); ct > 0 {
+		dm.app.QueueUpdateDraw(func() { dm.app.UpdateCronTime(ct) })
 	}
 }
 
-func (dm *DataManager) Stop() {
-	dm.cancel()
-}
+// Stop terminates streaming.
+func (dm *DataManager) Stop() { dm.cancel() }

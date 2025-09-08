@@ -49,6 +49,7 @@ func NewApp() *App {
 	app.hosts = NewHostsPanel()
 	app.containers = NewContainersPanel(app)
 	app.logs = NewLogsPanel(app)
+	app.logs.AddLog("[TUI] Initialized – waiting for snapshots (press q to quit)")
 	app.cron = NewCronWidget(app)
 	app.servicesStatus = NewServicesPanel(app)
 	app.credits = NewCreditWidget("MadhavKrishanGoswami", "Goswamimadhav24")
