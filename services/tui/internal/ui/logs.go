@@ -48,10 +48,16 @@ func NewLogsPanel(app *App) *LogsPanel {
 }
 
 // AddLog appends a new message safely from any goroutine.
+// NOTE: must not be used before Application.Run starts; for initialization use AddLogDirect.
 func (lp *LogsPanel) AddLog(message string) {
 	lp.app.QueueUpdateDraw(func() {
 		fmt.Fprintln(lp.textView, message)
 	})
+}
+
+// AddLogDirect writes directly (only safe before Run())
+func (lp *LogsPanel) AddLogDirect(message string) {
+	fmt.Fprintln(lp.textView, message)
 }
 
 // ClearLogs removes all messages safely.
