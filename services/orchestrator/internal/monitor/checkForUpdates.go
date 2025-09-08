@@ -23,6 +23,7 @@ func CheckForUpdates(ctx context.Context, grpcClient registry_monitor.RegistryMo
 
 	if len(containers) == 0 {
 		log.Println("No containers in watchlist")
+		// removed logstream
 		return registry_monitor.CheckUpdatesResponse{}, nil
 	}
 
@@ -54,6 +55,7 @@ func CheckForUpdates(ctx context.Context, grpcClient registry_monitor.RegistryMo
 		// in this request. The logic for populating the initial digest should be
 		// handled when the container is first added to the database.
 		log.Printf("Check image repository=%s tag=%s", repository, tag)
+		// removed logstream
 		imageInfo := &registry_monitor.ImageInfo{
 			ContainerUid: c.ContainerUid,
 			Repository:   repository,
@@ -67,12 +69,16 @@ func CheckForUpdates(ctx context.Context, grpcClient registry_monitor.RegistryMo
 	}
 
 	log.Printf("Checking for updates for %d containers", len(containerInfos))
+	// removed logstream
 	resp, err := grpcClient.CheckUpdates(ctx, req)
 	if err != nil {
 		log.Printf("gRPC call to CheckUpdates failed: %v", err)
+		// removed logstream
 		return registry_monitor.CheckUpdatesResponse{}, err
 	}
 
 	log.Printf("%d containers have updates", len(resp.ImagestoUpdate))
-	return *resp, nil
+	// removed logstream
+	// Avoid copying entire proto (contains sync primitives); construct lightweight response
+	return registry_monitor.CheckUpdatesResponse{ImagestoUpdate: resp.ImagestoUpdate}, nil
 }

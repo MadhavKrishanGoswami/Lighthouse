@@ -13,6 +13,7 @@ import (
 	db "github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/db/sqlc"
 	agentserver "github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/grpc/agent"
 	registryclient "github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/grpc/registry-monitor"
+	tuiserver "github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/grpc/tui"
 	"github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/monitor"
 
 	// Proto definitions
@@ -69,6 +70,12 @@ func main() {
 	agentServer := agentserver.NewServer(queries)
 	agentpb.RegisterHostAgentServiceServer(grpcServer, agentServer)
 	log.Println("HostAgentService registered.")
+
+	// TUI server (for logs + snapshots)
+	tuiSrv := tuiserver.NewServer(queries)
+	// hook standard logger AFTER creating tui server so all subsequent log lines stream
+	tuiSrv.HookStandardLogger()
+	log.Println("TUI logging hook installed.")
 
 	// --- 6. Server Start & Graceful Shutdown ---
 	// Start the server in a background goroutine so it doesn't block.

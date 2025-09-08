@@ -62,6 +62,7 @@ func (s *Server) RegisterHost(ctx context.Context, req *orchestrator.RegisterHos
 	}
 
 	log.Printf("Host registration: %s (%s)", req.Host.Hostname, req.Host.IpAddress)
+	// logstream removed to break import cycle
 
 	params := db.InsertHostParams{
 		MacAddress: req.Host.MacAddress,

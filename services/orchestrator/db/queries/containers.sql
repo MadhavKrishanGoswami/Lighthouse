@@ -41,3 +41,7 @@ SELECT * FROM containers WHERE container_uid = $1;
 UPDATE containers
 SET watch = $1
 WHERE name = $2 AND host_id = (SELECT id FROM hosts WHERE  mac_address = $3);
+-- name: GetAllContainersonHost :many
+-- Retrieves all containers associated with a given host ID 
+SELECT * FROM containers WHERE host_id = $1;
+

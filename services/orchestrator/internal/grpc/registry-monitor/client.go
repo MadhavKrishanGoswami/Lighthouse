@@ -15,7 +15,7 @@ func StartClient() (registry_monitor.RegistryMonitorServiceClient, *grpc.ClientC
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
-	conn, err := grpc.NewClient("localhost:50052", opts...)
+	conn, err := grpc.Dial("localhost:50052", opts...)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 		return nil, nil, err

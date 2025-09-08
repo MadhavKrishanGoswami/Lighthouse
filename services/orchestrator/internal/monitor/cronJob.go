@@ -56,6 +56,7 @@ func SetCronTimeInHours(hours int) {
 		go CronMonitor(ctx, CronTimeInHours*60, cronArgs.registryMonitorClient, cronArgs.queries, cronArgs.agentServer)
 	} else {
 		log.Printf("[Cron] Dependencies not set; will start on next StartCronJob")
+		// removed logstream dependency
 	}
 }
 
@@ -69,6 +70,7 @@ func StartCronJob(registryMonitorClient registry_monitor.RegistryMonitorServiceC
 	// stop existing
 	if cronCancel != nil {
 		log.Printf("[Cron] Stopping existing cron before starting new one")
+		// removed logstream dependency
 		cronCancel()
 		cronCancel = nil
 	}
@@ -76,5 +78,12 @@ func StartCronJob(registryMonitorClient registry_monitor.RegistryMonitorServiceC
 	ctx, cancel := context.WithCancel(context.Background())
 	cronCancel = cancel
 	log.Printf("[Cron] Starting cron with interval %dh", CronTimeInHours)
+	// removed logstream dependency
 	go CronMonitor(ctx, CronTimeInHours*60, registryMonitorClient, queries, agentServer)
+}
+
+func GetCronTime() int {
+	cronMu.Lock()
+	defer cronMu.Unlock()
+	return CronTimeInHours
 }

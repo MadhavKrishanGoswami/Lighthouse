@@ -20,4 +20,6 @@ SELECT * FROM hosts WHERE mac_address = $1;
 -- name: UpdateHostLastHeartbeat :one
 -- Updates the last heartbeat timestamp for a host identified by id.
 UPDATE hosts SET last_heartbeat = NOW() WHERE id = $1 RETURNING *;
-
+-- name: GetAllHosts :many
+-- Retrieves all hosts from the database.
+SELECT * FROM hosts;

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -131,6 +132,44 @@ func (s *Server) PushLog(format string, args ...any) {
 	}
 }
 
+// tuiLogWriter duplicates to stdout and forwards colored lines to PushLog.
+type tuiLogWriter struct{ srv *Server }
+
+func (w tuiLogWriter) Write(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	raw := strings.TrimRight(string(p), "\n")
+	// Basic color classification.
+	lower := strings.ToLower(raw)
+	color := "[white]"
+	switch {
+	case strings.Contains(lower, "error"), strings.Contains(lower, "failed"), strings.Contains(lower, "fatal"), strings.Contains(lower, "panic"):
+		color = "[red]"
+	case strings.Contains(lower, "starting"), strings.Contains(lower, "checking"), strings.Contains(lower, "queued"), strings.Contains(lower, "sending"):
+		color = "[yellow]"
+	case strings.Contains(lower, "connected"), strings.Contains(lower, "completed"), strings.Contains(lower, "success"), strings.Contains(lower, "established"), strings.Contains(lower, "synced"):
+		color = "[green]"
+	}
+	// Timestamp format per example (YYYY-MM-DD HH:MM:SS)
+	ts := time.Now().Format("2006-01-02 15:04:05")
+	line := fmt.Sprintf("%s%s[white] - %s", color, ts, raw)
+	if w.srv != nil {
+		// Non-blocking send (PushLog already non-blocking)
+		w.srv.PushLog("%s", line)
+	}
+	// Write original to standard logger output (stderr by default)
+	return fmt.Print(raw + "\n")
+}
+
+// HookStandardLogger routes the standard library logger through TUI streaming while preserving normal output.
+func (s *Server) HookStandardLogger() {
+	if s == nil {
+		return
+	}
+	log.SetOutput(tuiLogWriter{srv: s})
+}
+
 // startLogBroadcaster launches a single goroutine (once) that fan-outs log lines to all log streams.
 func (s *Server) startLogBroadcaster() {
 	s.logBroadcasterOnce.Do(func() {
@@ -143,7 +182,11 @@ func (s *Server) startLogBroadcaster() {
 					streams[id] = st
 				}
 				s.logMu.Unlock()
-				msg := &tui.LogLine{Line: fmt.Sprintf("%s | %s", time.Now().Format(time.RFC3339), line)}
+				// line already contains timestamp & color (writer adds). If not, add fallback.
+				if !strings.HasPrefix(line, "[") {
+					line = fmt.Sprintf("[white]%s[white] %s", time.Now().Format("2006-01-02 15:04:05"), line)
+				}
+				msg := &tui.LogLine{Line: line}
 				for id, st := range streams {
 					if err := st.Send(msg); err != nil {
 						log.Printf("[TUI Service] log send failed stream=%s err=%v removing", id, err)

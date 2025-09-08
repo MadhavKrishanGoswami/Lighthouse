@@ -14,6 +14,13 @@ protos:
 			 --go-grpc_out=services/common/genproto/registry-monitor/ \
 			 --go-grpc_opt=paths=source_relative \
 			 proto/registry-monitor.proto
+	@echo "Building proto for tui"
+	protoc -I proto \
+			 --go_out=services/common/genproto/tui/ \
+			 --go_opt=paths=source_relative \
+			 --go-grpc_out=services/common/genproto/tui/ \
+			 --go-grpc_opt=paths=source_relative \
+			 proto/tui.proto
 
 
 

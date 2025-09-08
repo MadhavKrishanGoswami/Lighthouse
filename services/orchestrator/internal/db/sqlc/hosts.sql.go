@@ -11,6 +11,38 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getAllHosts = `-- name: GetAllHosts :many
+SELECT id, mac_address, hostname, ip_address, last_heartbeat, created_at FROM hosts
+`
+
+// Retrieves all hosts from the database.
+func (q *Queries) GetAllHosts(ctx context.Context) ([]Host, error) {
+	rows, err := q.db.Query(ctx, getAllHosts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Host
+	for rows.Next() {
+		var i Host
+		if err := rows.Scan(
+			&i.ID,
+			&i.MacAddress,
+			&i.Hostname,
+			&i.IpAddress,
+			&i.LastHeartbeat,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getHostByMacAddress = `-- name: GetHostByMacAddress :one
 SELECT id, mac_address, hostname, ip_address, last_heartbeat, created_at FROM hosts WHERE mac_address = $1
 `

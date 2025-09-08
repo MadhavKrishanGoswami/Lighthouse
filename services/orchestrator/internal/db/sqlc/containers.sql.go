@@ -27,6 +27,43 @@ func (q *Queries) DeleteStaleContainersForHost(ctx context.Context, arg DeleteSt
 	return err
 }
 
+const getAllContainersonHost = `-- name: GetAllContainersonHost :many
+SELECT id, container_uid, host_id, name, image, ports, env_vars, volumes, network, watch, created_at FROM containers WHERE host_id = $1
+`
+
+// Retrieves all containers associated with a given host ID
+func (q *Queries) GetAllContainersonHost(ctx context.Context, hostID pgtype.UUID) ([]Container, error) {
+	rows, err := q.db.Query(ctx, getAllContainersonHost, hostID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Container
+	for rows.Next() {
+		var i Container
+		if err := rows.Scan(
+			&i.ID,
+			&i.ContainerUid,
+			&i.HostID,
+			&i.Name,
+			&i.Image,
+			&i.Ports,
+			&i.EnvVars,
+			&i.Volumes,
+			&i.Network,
+			&i.Watch,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getContainerbyContainerUID = `-- name: GetContainerbyContainerUID :one
 SELECT id, container_uid, host_id, name, image, ports, env_vars, volumes, network, watch, created_at FROM containers WHERE container_uid = $1
 `

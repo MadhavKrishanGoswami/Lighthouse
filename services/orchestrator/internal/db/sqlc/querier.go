@@ -13,6 +13,10 @@ import (
 type Querier interface {
 	// Deletes containers for a given host that are not in the provided list of UIDs.
 	DeleteStaleContainersForHost(ctx context.Context, arg DeleteStaleContainersForHostParams) error
+	// Retrieves all containers associated with a given host ID
+	GetAllContainersonHost(ctx context.Context, hostID pgtype.UUID) ([]Container, error)
+	// Retrieves all hosts from the database.
+	GetAllHosts(ctx context.Context) ([]Host, error)
 	// Retrieves a container by its UID
 	GetContainerbyContainerUID(ctx context.Context, containerUid string) (Container, error)
 	// Retrieves a host by its mac_address.
