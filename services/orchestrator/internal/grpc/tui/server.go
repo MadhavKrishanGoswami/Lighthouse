@@ -132,7 +132,7 @@ func (s *Server) PushLog(format string, args ...any) {
 	}
 }
 
-// tuiLogWriter duplicates to stdout and forwards colored lines to PushLog.
+// tuiLogWriter duplicates to stdout and forwards plain lines (no color tags) to PushLog.
 type tuiLogWriter struct{ srv *Server }
 
 func (w tuiLogWriter) Write(p []byte) (int, error) {
@@ -140,25 +140,12 @@ func (w tuiLogWriter) Write(p []byte) (int, error) {
 		return 0, nil
 	}
 	raw := strings.TrimRight(string(p), "\n")
-	// Basic color classification.
-	lower := strings.ToLower(raw)
-	color := "[white]"
-	switch {
-	case strings.Contains(lower, "error"), strings.Contains(lower, "failed"), strings.Contains(lower, "fatal"), strings.Contains(lower, "panic"):
-		color = "[red]"
-	case strings.Contains(lower, "starting"), strings.Contains(lower, "checking"), strings.Contains(lower, "queued"), strings.Contains(lower, "sending"):
-		color = "[yellow]"
-	case strings.Contains(lower, "connected"), strings.Contains(lower, "completed"), strings.Contains(lower, "success"), strings.Contains(lower, "established"), strings.Contains(lower, "synced"):
-		color = "[green]"
-	}
-	// Timestamp format per example (YYYY-MM-DD HH:MM:SS)
+	// Add uniform timestamp prefix, no color tags.
 	ts := time.Now().Format("2006-01-02 15:04:05")
-	line := fmt.Sprintf("%s%s[white] - %s", color, ts, raw)
+	line := fmt.Sprintf("%s - %s", ts, raw)
 	if w.srv != nil {
-		// Non-blocking send (PushLog already non-blocking)
 		w.srv.PushLog("%s", line)
 	}
-	// Write original to standard logger output (stderr by default)
 	return fmt.Print(raw + "\n")
 }
 
@@ -184,9 +171,7 @@ func (s *Server) startLogBroadcaster() {
 				}
 				s.logMu.Unlock()
 				// line already contains timestamp & color (writer adds). If not, add fallback.
-				if !strings.HasPrefix(line, "[") {
-					line = fmt.Sprintf("[white]%s[white] %s", time.Now().Format("2006-01-02 15:04:05"), line)
-				}
+				// line already has timestamp; no color transformation
 				msg := &tui.LogLine{Line: line}
 				for id, st := range streams {
 					if err := st.Send(msg); err != nil {
