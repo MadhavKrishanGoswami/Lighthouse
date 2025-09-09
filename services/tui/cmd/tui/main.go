@@ -13,18 +13,14 @@ import (
 
 func main() {
 	// Initialize gRPC client
-	_, clientConn, err := client.StartClient()
+	c, clientConn, err := client.StartClient()
 	if err != nil {
 		log.Fatalf("gRPC client init failed: %v", err)
 	}
-	defer clientConn.Close()
 
-	// Create TUI app
-	app := ui.NewApp()
-
-	// Create data manager
-
-	// Start data streaming
+	// Create TUI app with client
+	app := ui.NewApp(c, clientConn)
+	defer app.Close()
 
 	// Handle graceful shutdown
 	go func() {

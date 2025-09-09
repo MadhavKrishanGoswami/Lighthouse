@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"context"
 	"strings"
 	"time"
 
+	tui "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/tui"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -46,7 +48,7 @@ func NewContainersPanel(app *App) *ContainersPanel {
 			for c := 0; c < 4; c++ {
 				cell := cp.GetCell(r, c)
 				if r == row {
-					cell.SetTextColor(tcell.ColorLightBlue) // selected font
+					cell.SetTextColor(tcell.ColorLightBlue)
 				} else {
 					cp.restoreCellColor(r, c)
 				}
@@ -61,9 +63,8 @@ func NewContainersPanel(app *App) *ContainersPanel {
 func (cp *ContainersPanel) Update(containers []Container) {
 	cp.containers = containers
 	cp.Clear()
-	cp.SetFixed(1, 0) // fix header
+	cp.SetFixed(1, 0)
 
-	// Set headers
 	headers := []string{"Name", "Image", "Status", "Watching"}
 	for i, h := range headers {
 		cp.SetCell(0, i, tview.NewTableCell(h).
@@ -77,24 +78,17 @@ func (cp *ContainersPanel) Update(containers []Container) {
 	}
 }
 
-// Draws a single row
 func (cp *ContainersPanel) drawRow(row int, c Container) {
 	textColor := Theme.PrimaryTextColor
 	if c.IsUpdating {
 		textColor = Theme.AccentWarningColor
 	}
-
-	// Name
 	cp.SetCell(row, 0, tview.NewTableCell(c.Name).SetTextColor(textColor).SetExpansion(1))
-
-	// Image (truncate if too long)
 	imageName := c.Image
 	if len(imageName) > 30 {
 		imageName = imageName[:27] + "..."
 	}
 	cp.SetCell(row, 1, tview.NewTableCell(imageName).SetTextColor(textColor).SetExpansion(1))
-
-	// Status
 	statusColor := Theme.AccentErrorColor
 	if strings.Contains(strings.ToLower(c.Status), "running") {
 		statusColor = Theme.AccentGoodColor
@@ -103,34 +97,22 @@ func (cp *ContainersPanel) drawRow(row int, c Container) {
 		statusColor = Theme.AccentWarningColor
 	}
 	cp.SetCell(row, 2, tview.NewTableCell(c.Status).SetTextColor(statusColor).SetAlign(tview.AlignCenter).SetExpansion(1))
-
-	// Watching
 	watchText := "No"
 	watchColor := textColor
 	if c.IsWatching {
 		watchText = "Yes"
 		watchColor = Theme.AccentWarningColor
-		if c.IsUpdating {
-			watchColor = Theme.AccentWarningColor
-		}
 	}
 	cp.SetCell(row, 3, tview.NewTableCell(watchText).SetTextColor(watchColor).SetAlign(tview.AlignCenter))
 }
 
-// Restore the correct color for a given cell
 func (cp *ContainersPanel) restoreCellColor(row, col int) {
 	if row <= 0 || row-1 >= len(cp.containers) {
 		return
 	}
 	c := cp.containers[row-1]
 	switch col {
-	case 0:
-		color := Theme.PrimaryTextColor
-		if c.IsUpdating {
-			color = Theme.AccentWarningColor
-		}
-		cp.GetCell(row, col).SetTextColor(color)
-	case 1:
+	case 0, 1:
 		color := Theme.PrimaryTextColor
 		if c.IsUpdating {
 			color = Theme.AccentWarningColor
@@ -154,16 +136,13 @@ func (cp *ContainersPanel) restoreCellColor(row, col int) {
 	}
 }
 
-// Input handling for toggling watch and updating
 func (cp *ContainersPanel) handleInput(event *tcell.EventKey) *tcell.EventKey {
 	row, _ := cp.GetSelection()
 	if row <= 0 || row-1 >= len(cp.containers) {
 		return event
 	}
-
-	containerIndex := row - 1
-	c := &cp.containers[containerIndex]
-
+	idx := row - 1
+	c := &cp.containers[idx]
 	switch event.Rune() {
 	case 'w', 'W':
 		c.IsWatching = !c.IsWatching
@@ -172,22 +151,20 @@ func (cp *ContainersPanel) handleInput(event *tcell.EventKey) *tcell.EventKey {
 			cp.app.OnWatchToggle(*c)
 		}
 		return nil
-
 	case 'u', 'U':
 		if c.IsUpdating {
 			return nil
 		}
 		c.IsUpdating = true
 		cp.drawRow(row, *c)
-
-		go func(container *Container, row int) {
+		go func(container *Container, r int) {
 			if cp.app != nil {
 				cp.app.OnUpdateContainer(*container)
 			}
 			time.Sleep(2 * time.Second)
 			cp.app.QueueUpdateDraw(func() {
 				container.IsUpdating = false
-				cp.drawRow(row, *container)
+				cp.drawRow(r, *container)
 			})
 		}(c, row)
 		return nil
@@ -195,12 +172,24 @@ func (cp *ContainersPanel) handleInput(event *tcell.EventKey) *tcell.EventKey {
 	return event
 }
 
-// simulate container update
 func (a *App) OnUpdateContainer(c Container) {
-	time.Sleep(2 * time.Second)
+	// Placeholder for future RPC
 	c.IsUpdating = false
 }
 
 func (a *App) OnWatchToggle(c Container) {
-	c.IsWatching = !c.IsWatching
+	go func(cont Container) {
+		if a.client == nil {
+			return
+		}
+		a.dataMu.RLock()
+		mac := a.nameToMAC[a.hosts.selectedHostName]
+		a.dataMu.RUnlock()
+		_, err := a.client.SetWatch(context.Background(), &tui.SetWatchlistRequest{ContainerName: cont.Name, HostMac: mac, Watch: cont.IsWatching})
+		if err != nil {
+			a.logs.AddLog("[red]SetWatch failed: " + err.Error())
+		} else {
+			a.logs.AddLog("[green]Watch updated for " + cont.Name)
+		}
+	}(c)
 }
