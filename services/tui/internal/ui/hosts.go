@@ -94,9 +94,13 @@ func (hp *HostsPanel) Update(hosts []Host) {
 			SetAlign(tview.AlignCenter).
 			SetExpansion(expansions[1]))
 
-		macText := host.MACAddress[:5] + "..."
-		if hp.showMAC {
-			macText = host.MACAddress
+		macText := host.MACAddress
+		if !hp.showMAC {
+			if len(macText) > 5 {
+				macText = macText[:5] + "..."
+			} else {
+				// leave as-is if shorter than 5 chars (avoid slice panic)
+			}
 		}
 		hp.SetCell(row, 2, tview.NewTableCell(macText).
 			SetTextColor(tcell.ColorYellow).
