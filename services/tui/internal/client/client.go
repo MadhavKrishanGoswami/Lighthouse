@@ -1,5 +1,4 @@
 // Package client provides functionality to connect to the gRPC server
-
 package client
 
 import (
