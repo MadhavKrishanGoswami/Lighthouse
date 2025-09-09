@@ -8,12 +8,15 @@ import (
 	"syscall"
 
 	"github.com/MadhavKrishanGoswami/Lighthouse/services/tui/internal/client"
+	"github.com/MadhavKrishanGoswami/Lighthouse/services/tui/internal/config"
 	"github.com/MadhavKrishanGoswami/Lighthouse/services/tui/internal/ui"
 )
 
 func main() {
+	// Configuration loading
+	cfg := config.MustLoad()
 	// Initialize gRPC client
-	c, clientConn, err := client.StartClient()
+	c, clientConn, err := client.StartClient(*cfg)
 	if err != nil {
 		log.Fatalf("gRPC client init failed: %v", err)
 	}

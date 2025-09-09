@@ -27,7 +27,7 @@ protos:
 run-host-agent:
 	@echo "Running host-agent"
 	go build -o ./services/host-agent/build ./services/host-agent/cmd/agent/main.go 
-	./services/host-agent/build
+	./services/host-agent/build  -config local.yaml
 
 run-orchestrator:
 	@echo "Running orchestrator"
@@ -40,7 +40,7 @@ run-registry-monitor:
 run-tui:
 	@echo "Running TUI"
 	go build -o ./services/tui/build ./services/tui/cmd/tui/main.go
-	./services/tui/build
+	./services/tui/build  -o localhost:50051
 postgres:
 	@echo "Running postgres"
 	docker run --rm -d --name dbLighthouse -e POSTGRES_USER=dev -e POSTGRES_PASSWORD=dev -p 5432:5432 postgres:13.22-alpine3.22

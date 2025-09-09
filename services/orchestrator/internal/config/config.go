@@ -11,7 +11,8 @@ import (
 
 // GRPCServer configures the HTTP server.
 type GRPCServer struct {
-	Addr string `yaml:"address"`
+	OrcastraterAddr     string `yaml:"orcastraterAddress"`
+	RegistryMonitorAddr string `yaml:"registerAddress"`
 }
 
 // Config holds all configuration for the application.

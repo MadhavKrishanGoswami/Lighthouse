@@ -9,14 +9,18 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/MadhavKrishanGoswami/Lighthouse/services/host-agent/config"
 	"github.com/MadhavKrishanGoswami/Lighthouse/services/host-agent/internal/agent"
 	"github.com/MadhavKrishanGoswami/Lighthouse/services/host-agent/internal/client"
 	dockerclient "github.com/docker/docker/client"
 )
 
 func main() {
+	// ---  Configuration Loading ---
+	cfg := config.MustLoad()
+	log.Println("Configuration loaded successfully.")
 	// --- 1. Start gRPC client and wait until orchestrator server is ready ---
-	gRPCClient, clientConn, err := client.StartClient()
+	gRPCClient, clientConn, err := client.StartClient(*cfg)
 	if err != nil {
 		log.Fatalf("gRPC client init failed: %v", err)
 	}
@@ -57,7 +61,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {

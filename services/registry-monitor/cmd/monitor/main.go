@@ -9,13 +9,18 @@ import (
 
 	// 1. ADD THIS IMPORT for the generated protobuf code
 	registry_monitor "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/registry-monitor"
+	"github.com/MadhavKrishanGoswami/Lighthouse/services/registry-monitor/internal/config"
 	monitorServer "github.com/MadhavKrishanGoswami/Lighthouse/services/registry-monitor/internal/grpc"
 	"google.golang.org/grpc"
 )
 
 func main() {
+	// load configuration
+	cfg := config.MustLoad()
+	log.Println("Configuration loaded successfully.")
+
 	// --- Server Startup Logic ---
-	lis, err := net.Listen("tcp", "0.0.0.0:50052")
+	lis, err := net.Listen("tcp", cfg.GRPCServer.RegistryMonitorAddr)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}

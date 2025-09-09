@@ -6,6 +6,7 @@ import (
 	"time"
 
 	orchestrator "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/host-agents"
+	"github.com/MadhavKrishanGoswami/Lighthouse/services/host-agent/config"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -13,8 +14,8 @@ import (
 // StartClient tries to connect to the gRPC server and waits until it's available.
 
 // StartClient waits for the server to be ready using the new grpc.NewClient API.
-func StartClient() (orchestrator.HostAgentServiceClient, *grpc.ClientConn, error) {
-	addr := "localhost:50051"
+func StartClient(cfg config.Config) (orchestrator.HostAgentServiceClient, *grpc.ClientConn, error) {
+	addr := cfg.GRPCServer.OrcastraterAddr
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}

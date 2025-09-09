@@ -62,9 +62,9 @@ func main() {
 
 	// --- 4. gRPC Server Setup ---
 	// Set up the main gRPC server that will host our services.
-	lis, err := net.Listen("tcp", cfg.Addr)
+	lis, err := net.Listen("tcp", cfg.GRPCServer.OrcastraterAddr)
 	if err != nil {
-		log.Fatalf("Failed to listen on address %s: %v", cfg.Addr, err)
+		log.Fatalf("Failed to listen on address %s: %v", cfg.GRPCServer.OrcastraterAddr, err)
 	}
 	grpcServer := grpc.NewServer()
 

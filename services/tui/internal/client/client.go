@@ -6,6 +6,7 @@ import (
 	"time"
 
 	tui "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/tui"
+	"github.com/MadhavKrishanGoswami/Lighthouse/services/tui/internal/config"
 
 	"google.golang.org/grpc"
 
@@ -14,8 +15,8 @@ import (
 
 // StartClient waits for the server to be ready using the new grpc.NewClient API.
 
-func StartClient() (tui.TUIServiceClient, *grpc.ClientConn, error) {
-	addr := "localhost:50051" // TODO: make configurable via env TUI_ORCHESTRATOR_ADDR
+func StartClient(cfg config.Config) (tui.TUIServiceClient, *grpc.ClientConn, error) {
+	addr := cfg.OrchestratorAddr
 
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
