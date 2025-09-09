@@ -27,7 +27,7 @@ protos:
 run-host-agent:
 	@echo "Running host-agent"
 	go build -o ./services/host-agent/build ./services/host-agent/cmd/agent/main.go 
-	./services/host-agent/build  -config local.yaml
+	./services/host-agent/build  -o localhost:50051
 
 run-orchestrator:
 	@echo "Running orchestrator"

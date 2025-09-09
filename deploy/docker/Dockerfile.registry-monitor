@@ -1,0 +1,54 @@
+# Stage 1: The Builder
+# This stage compiles the Go application and its dependencies.
+FROM golang:1.24.5-alpine AS builder
+
+# Install necessary build tools: git, protobuf compiler, and make
+RUN apk add --no-cache git protobuf protobuf-dev make
+
+# Install Go tools for protobuf generation
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28 && \
+    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy go.mod and go.sum files to leverage Docker's build cache
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy the entire project source code
+COPY . .
+
+# Generate protobuf code using the Makefile targets
+# This ensures the build process is consistent with your local development
+RUN make protos
+
+# Build the registry-monitor binary.
+# CGO_ENABLED=0 creates a static binary.
+# -o /app/registry-monitor places the output in the root of the app directory.
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -a -installsuffix cgo \
+    -o /app/registry-monitor \
+    ./services/registry-monitor/cmd/monitor/main.go
+
+# ---
+
+# Stage 2: The Final Image
+# This stage creates the final, lightweight image with only the compiled binary.
+FROM alpine:latest
+
+# Install CA certificates for making secure connections
+RUN apk --no-cache add ca-certificates
+
+# Set the working directory
+WORKDIR /root/
+
+# Copy the compiled registry-monitor binary from the builder stage
+COPY --from=builder /app/registry-monitor .
+
+# Expose the port the application runs on.
+# You'll need to replace this with the actual port if your service exposes one.
+# EXPOSE 8082
+
+# Command to run the application
+ENTRYPOINT ["./registry-monitor"]

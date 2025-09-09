@@ -2,7 +2,7 @@
 set -e
 
 VERSION="v1.0.0" # Change this when releasing new versions
-OUTPUT_DIR="releases/$VERSION"
+OUTPUT_DIR="../releases/tui/$VERSION"
 
 echo "Building version $VERSION..."
 
@@ -25,7 +25,7 @@ for PLATFORM in "${PLATFORMS[@]}"; do
   fi
 
   # Build the binary
-  GOOS=$OS GOARCH=$ARCH go build -o "$OUTPUT_DIR/$OUTPUT_NAME" ./services/tui/cmd/tui/main.go
+  GOOS=$OS GOARCH=$ARCH go build -o "$OUTPUT_DIR/$OUTPUT_NAME" ../services/tui/cmd/tui/main.go
 
   # Compress the file
   if [ "$OS" = "windows" ]; then

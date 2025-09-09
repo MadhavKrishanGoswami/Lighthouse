@@ -15,7 +15,7 @@ import (
 
 // StartClient waits for the server to be ready using the new grpc.NewClient API.
 func StartClient(cfg config.Config) (orchestrator.HostAgentServiceClient, *grpc.ClientConn, error) {
-	addr := cfg.GRPCServer.OrcastraterAddr
+	addr := cfg.OrchestratorAddr
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}

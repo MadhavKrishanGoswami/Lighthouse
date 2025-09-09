@@ -1,5 +1,0 @@
-47b76b4611f15cc38fc14ccc330711e129d80444bcb489c521a7eeffea137d42  tui-darwin-amd64.tar.gz
-363d1a1d634e04bcb0e88619f1a4fffdbd1031849cc6a21cb61aab9961f8cec1  tui-darwin-arm64.tar.gz
-48713494c5d46b918d89084e87b6075107e138ba9fc9649bf77338c0d05078d0  tui-linux-amd64.tar.gz
-3f78d38f7c6b6b4bc16bb6cd9af68ac9a8728e2c5dabbb9991e641de5a2c9d78  tui-linux-arm64.tar.gz
-f6fdabcfe6689ceeedf83d26aeab3d8248ee46af408419afa707a73f670fe7c5  tui-windows-amd64.zip
