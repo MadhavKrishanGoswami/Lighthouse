@@ -173,6 +173,7 @@ func (s *Server) HookStandardLogger() {
 // startLogBroadcaster launches a single goroutine (once) that fan-outs log lines to all log streams.
 func (s *Server) startLogBroadcaster() {
 	s.logBroadcasterOnce.Do(func() {
+
 		go func() {
 			for line := range s.logCh {
 				// snapshot of current log streams
@@ -221,6 +222,7 @@ func (s *Server) StreamLogs(stream tui.TUIService_StreamLogsServer) error {
 }
 
 // SendDatastream handles the bidirectional streaming RPC.
+// It now terminates cleanly when the client disconnects or when sending fails with terminal gRPC codes.
 func (s *Server) SendDatastream(stream tui.TUIService_SendDatastreamServer) error {
 	var heartbeatCount uint64
 	// Simplified logging: keep only the last log line (most recent event) instead of a slice.
@@ -251,9 +253,11 @@ func (s *Server) SendDatastream(stream tui.TUIService_SendDatastreamServer) erro
 	// Goroutine to read acks / heartbeats from client
 	go func() {
 		for {
+
 			in, err := stream.Recv()
 			if err != nil {
 				setLog(fmt.Sprintf("recv loop ended: %v", err)) // record final state
+				// client disconnect -> exit goroutine (loop will end)
 				log.Printf("[TUI Service] recv loop ended for %s: %v", clientID, err)
 				s.PushLog("datastream client disconnected id=%s err=%v", clientID, err)
 				return
