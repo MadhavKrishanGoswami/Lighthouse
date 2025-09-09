@@ -3,11 +3,15 @@ package tuiserver
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	tui "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/tui"
 	db "github.com/MadhavKrishanGoswami/Lighthouse/services/orchestrator/internal/db/sqlc"
@@ -209,6 +213,29 @@ func (s *Server) StreamLogs(stream tui.TUIService_StreamLogsServer) error {
 // SendDatastream handles the bidirectional streaming RPC.
 // It now terminates cleanly when the client disconnects or when sending fails with terminal gRPC codes.
 func (s *Server) SendDatastream(stream tui.TUIService_SendDatastreamServer) error {
+	ctx := stream.Context()
+	// channels & coordination
+	term := make(chan struct{}) // closed when recv loop ends
+	var once sync.Once
+	closeTerm := func() { once.Do(func() { close(term) }) }
+
+	isTerminalErr := func(err error) bool {
+		if err == nil {
+			return false
+		}
+		// unwrap gRPC status
+		st, ok := status.FromError(err)
+		if !ok {
+			// plain error (io.EOF, context.Canceled, etc.)
+			return err == io.EOF || ctx.Err() != nil
+		}
+		switch st.Code() {
+		case codes.Canceled, codes.DeadlineExceeded, codes.Unavailable:
+			return true
+		}
+		return false
+	}
+
 	var heartbeatCount uint64
 	// Simplified logging: keep only the last log line (most recent event) instead of a slice.
 	var lastLog atomic.Value // stores string
@@ -237,12 +264,11 @@ func (s *Server) SendDatastream(stream tui.TUIService_SendDatastreamServer) erro
 
 	// Goroutine to read acks / heartbeats from client
 	go func() {
+		defer closeTerm()
 		for {
-
 			in, err := stream.Recv()
 			if err != nil {
-				setLog(fmt.Sprintf("recv loop ended: %v", err)) // record final state
-				// client disconnect -> exit goroutine (loop will end)
+				setLog(fmt.Sprintf("recv loop ended: %v", err))
 				log.Printf("[TUI Service] recv loop ended for %s: %v", clientID, err)
 				s.PushLog("datastream client disconnected id=%s err=%v", clientID, err)
 				return
@@ -250,7 +276,7 @@ func (s *Server) SendDatastream(stream tui.TUIService_SendDatastreamServer) erro
 			if ack := in.GetAck(); ack != "" {
 				atomic.AddUint64(&heartbeatCount, 1)
 				setLog(fmt.Sprintf("heartbeat %d (ack=%s)", atomic.LoadUint64(&heartbeatCount), ack))
-				select { // non-blocking push
+				select {
 				case snapshotReq <- "heartbeat":
 				default:
 				}
@@ -260,14 +286,14 @@ func (s *Server) SendDatastream(stream tui.TUIService_SendDatastreamServer) erro
 
 	sendSnapshot := func(reason string) error {
 		// Build host list with embedded containers
-		hostRows, err := s.DB.GetAllHosts(context.Background())
+		hostRows, err := s.DB.GetAllHosts(ctx)
 		if err != nil {
 			return fmt.Errorf("fetch hosts: %w", err)
 		}
 		// For each host fetch containers (N+1). Acceptable for small scale; optimize later with join.
 		containerRows := make(map[string][]db.Container)
 		for _, h := range hostRows {
-			rows, err := s.DB.GetAllContainersonHost(context.Background(), h.ID)
+			rows, err := s.DB.GetAllContainersonHost(ctx, h.ID)
 			if err != nil {
 				log.Printf("[TUI Service] fetch containers for host %s: %v", h.MacAddress, err)
 				continue
@@ -314,6 +340,9 @@ func (s *Server) SendDatastream(stream tui.TUIService_SendDatastreamServer) erro
 	}
 
 	if err := sendSnapshot("initial"); err != nil {
+		if isTerminalErr(err) {
+			return nil
+		}
 		log.Printf("[TUI Service] initial snapshot error: %v", err)
 	}
 	// periodic updates + heartbeat-triggered snapshots
@@ -321,13 +350,25 @@ func (s *Server) SendDatastream(stream tui.TUIService_SendDatastreamServer) erro
 	defer ticker.Stop()
 	for {
 		select {
+		case <-ctx.Done():
+			log.Printf("[TUI Service] context done for %s: %v", clientID, ctx.Err())
+			return nil
+		case <-term:
+			log.Printf("[TUI Service] terminating stream %s (recv closed)", clientID)
+			return nil
 		case <-ticker.C:
 			if err := sendSnapshot("ticker"); err != nil {
+				if isTerminalErr(err) {
+					return nil
+				}
 				setLog(fmt.Sprintf("snapshot error: %v", err))
 				log.Printf("[TUI Service] snapshot send error: %v", err)
 			}
 		case reason := <-snapshotReq:
 			if err := sendSnapshot(reason); err != nil {
+				if isTerminalErr(err) {
+					return nil
+				}
 				setLog(fmt.Sprintf("snapshot error: %v", err))
 				log.Printf("[TUI Service] snapshot send error: %v", err)
 			}
