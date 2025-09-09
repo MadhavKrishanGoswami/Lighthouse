@@ -62,7 +62,6 @@ func (s *Server) RegisterHost(ctx context.Context, req *orchestrator.RegisterHos
 	}
 
 	log.Printf("Host registration: %s (%s)", req.Host.Hostname, req.Host.IpAddress)
-	// logstream removed to break import cycle
 
 	params := db.InsertHostParams{
 		MacAddress: req.Host.MacAddress,
@@ -95,7 +94,6 @@ func (s *Server) RegisterHost(ctx context.Context, req *orchestrator.RegisterHos
 			log.Printf("Register container %s failed: %v", container.Name, err)
 		}
 	}
-
 	return &orchestrator.RegisterHostResponse{
 		Success: true,
 		Message: "Host registered successfully",
@@ -176,11 +174,26 @@ func (s *Server) ConnectAgentStream(stream orchestrator.HostAgentService_Connect
 	s.Mu.Unlock()
 
 	defer func() {
+		// Clean up in-memory connection map first
 		s.Mu.Lock()
 		delete(s.Hosts, agentID)
 		s.Mu.Unlock()
 		close(conn.done)
 		log.Printf("Agent stream disconnected %s", agentID)
+
+		// --- MODIFICATION START ---
+		// Delete all data for the disconnected host from the database
+		log.Printf("Attempting to delete all data for disconnected host %s", agentID)
+		ctx := context.Background() // Use a background context for cleanup
+
+		// This requires a `DeleteHostByMacAddress` query in your SQLc setup.
+		// Your DB schema should use `ON DELETE CASCADE` for this to be effective.
+		if err := s.DB.DeleteHostByMacAddress(ctx, agentID); err != nil {
+			log.Printf("Failed to delete data for host %s: %v", agentID, err)
+		} else {
+			log.Printf("Successfully deleted all data for host %s", agentID)
+		}
+		// --- MODIFICATION END ---
 	}()
 
 	// Write loop

@@ -11,6 +11,16 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const deleteHostByMacAddress = `-- name: DeleteHostByMacAddress :exec
+DELETE FROM hosts
+WHERE mac_address = $1
+`
+
+func (q *Queries) DeleteHostByMacAddress(ctx context.Context, macAddress string) error {
+	_, err := q.db.Exec(ctx, deleteHostByMacAddress, macAddress)
+	return err
+}
+
 const getAllHosts = `-- name: GetAllHosts :many
 SELECT id, mac_address, hostname, ip_address, last_heartbeat, created_at FROM hosts
 `

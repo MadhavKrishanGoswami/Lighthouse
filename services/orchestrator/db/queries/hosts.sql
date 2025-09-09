@@ -23,3 +23,6 @@ UPDATE hosts SET last_heartbeat = NOW() WHERE id = $1 RETURNING *;
 -- name: GetAllHosts :many
 -- Retrieves all hosts from the database.
 SELECT * FROM hosts;
+-- name: DeleteHostByMacAddress :exec
+DELETE FROM hosts
+WHERE mac_address = $1;

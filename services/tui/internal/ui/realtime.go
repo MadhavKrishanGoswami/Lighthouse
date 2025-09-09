@@ -158,7 +158,7 @@ func protoStatusToString(st tui.ContainerInfo_Status) string {
 	case tui.ContainerInfo_DEAD:
 		return "Dead"
 	default:
-		return "Unknown"
+		return "Running"
 	}
 }
 
