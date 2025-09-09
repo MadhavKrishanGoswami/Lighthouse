@@ -18,6 +18,8 @@ import (
 
 	// Proto definitions
 	agentpb "github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/host-agents"
+	// TUI proto package for registration
+	"github.com/MadhavKrishanGoswami/Lighthouse/services/common/genproto/tui"
 
 	// External dependencies
 	"github.com/jackc/pgx/v5"
@@ -72,10 +74,17 @@ func main() {
 	log.Println("HostAgentService registered.")
 
 	// TUI server (for logs + snapshots)
-	tuiSrv := tuiserver.NewServer(queries)
-	// hook standard logger AFTER creating tui server so all subsequent log lines stream
-	tuiSrv.HookStandardLogger()
-	log.Println("TUI logging hook installed.")
+	// Initialize and register the TUI gRPC service so that TUI clients can connect.
+	// Without this registration clients receive Unimplemented errors.
+	// We also hook the standard logger so logs are streamed to connected TUI log streams.
+	{
+		// local scope to avoid accidental reuse of tuiSrv below; if needed later move outside block
+		tuiSrv := tuiserver.NewServer(queries)
+		tuiSrv.HookStandardLogger()
+		// Register service with gRPC server
+		tui.RegisterTUIServiceServer(grpcServer, tuiSrv)
+		log.Println("TUIService registered and logging hook installed.")
+	}
 
 	// --- 6. Server Start & Graceful Shutdown ---
 	// Start the server in a background goroutine so it doesn't block.
