@@ -147,7 +147,6 @@ make postgres       # Start PostgreSQL container
 make createdb       # Create the database
 make dropdb         # Drop the database
 make migrate-up     # Apply migrations
-make migrate-down   # Roll back migrations
 ```
 
 ---
@@ -179,4 +178,5 @@ You now have Lighthouse fully running locally and can start contributing!
 Every contribution, whether reporting a bug or adding features, helps make Lighthouse better. We appreciate your time, effort, and enthusiasm.
 
 Let’s build something amazing together! 🚀📦
+
 
