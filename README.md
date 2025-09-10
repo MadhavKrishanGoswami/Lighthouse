@@ -23,7 +23,7 @@ Manage and update containers across multiple hosts from one centralized control 
 Monitor and manage your containers in real time through an intuitive and lightweight Text-based UI (TUI), designed for clarity and ease of use.
 
 **Automated, Graceful Rollouts**  
-Lighthouse watches your containers, pulls new images when available, gracefully shuts down running containers, and restarts them using the exact configuration as when they were first deployed.
+Lighthouse watches your containers, pulls new images when available, gracefully shuts down running containers, and restarts them using the exact configuration as they were deployed.
 
 **Lightweight Host Agents**  
 Deploy small, efficient agents on each host that communicate securely with the orchestrator via gRPC while executing updates locally for faster and more reliable performance.
