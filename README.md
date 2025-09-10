@@ -56,15 +56,16 @@ Deploying Lighthouse is quick and straightforward. Our setup guide walks you thr
 
 ---
 
-## 📸 Screenshots
+## 📹 Watch Lighthouse in Action
 
-Experience Lighthouse’s sleek TUI in action, giving you an overview of your fleet, container statuses, and updates—all in real-time.
+Check out a demo of Lighthouse’s sleek TUI updating containers across your fleet in real time!
 
 <p align="center">
-  <img src="https://placehold.co/800x400/0f172a/ffffff?text=Lighthouse+TUI+Screenshot" alt="Lighthouse TUI Screenshot">
+  
+https://github.com/user-attachments/assets/a472bc69-db61-4729-ab51-eeaf0d700c16
+
 </p>
 
----
 
 ## ⚙️ How It Works
 
