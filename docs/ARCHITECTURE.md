@@ -83,10 +83,7 @@ The **PostgreSQL database** acts as the persistent storage layer and source of t
 
 **Data Stored:**
 
-* Host information (IP, MAC address, etc.)
-* Container configurations
-* Auto-update watch settings
-* Update logs and system settings
+<img width="930" height="504" alt="Diagram from dbdiagram" src="https://github.com/user-attachments/assets/52fac025-951b-4352-8d38-04bd1de8cb02" />
 
 **Why PostgreSQL?**
 
