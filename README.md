@@ -52,9 +52,11 @@ Setting up Lighthouse is fast and hassle-free. Follow our comprehensive guide to
 Experience how Lighthouse manages container updates across a fleet of hosts with ease. Watch this demo showcasing its sleek interface and automated rollouts.
 
 <p align="center">
-  <a href="https://github.com/user-attachments/assets/a472bc69-db61-4729-ab51-eeaf0d700c16" target="_blank">
-    <img src="https://placehold.co/800x400/0f172a/ffffff?text=Watch+Lighthouse+Demo" alt="Lighthouse Demo" style="max-width:100%; border:1px solid #ddd;">
-  </a>
+
+
+https://github.com/user-attachments/assets/76a66687-d465-419e-b20a-8357b972c83c
+
+  
 </p>
 
 ---
