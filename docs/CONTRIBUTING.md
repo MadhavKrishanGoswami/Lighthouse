@@ -8,7 +8,7 @@ This document outlines how you can contribute. Feel free to propose improvements
 
 ## 📜 Code of Conduct
 
-This project and all participants are governed by the [Lighthouse Code of Conduct](https://github.com/MadhavKrishanGoswami/Lighthouse/blob/main/CODE_OF_CONDUCT.md). Please read and adhere to it. We strive for a welcoming, inclusive, and collaborative environment, and appreciate your cooperation.
+This project and all participants are governed by the [Lighthouse Code of Conduct](https://github.com/MadhavKrishanGoswami/Lighthouse/docs/CODE_OF_CONDUCT.md). Please read and adhere to it. We strive for a welcoming, inclusive, and collaborative environment, and appreciate your cooperation.
 
 ---
 
@@ -163,3 +163,4 @@ You now have Lighthouse fully running locally and can start contributing!
 Every contribution, whether it’s reporting a bug or writing new features, helps make Lighthouse better. We appreciate your time, effort, and enthusiasm.
 
 Let’s build something amazing together! 🚀📦
+
