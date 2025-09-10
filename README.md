@@ -38,6 +38,15 @@ Quick to deploy with minimal configuration. Step-by-step guides help you get Lig
 A modern tech stack ensures performance, scalability, and reliability across distributed environments.
 
 ---
+## 🤝 Contributing
+
+We welcome contributions from the community! Whether you’re fixing bugs, suggesting improvements, or adding new features, your input helps make Lighthouse better for everyone.
+
+Please fork the repository, submit a pull request, or open an issue labeled “enhancement.”
+
+➡️ See how you can contribute in [CONTRIBUTING.md](https://github.com/MadhavKrishanGoswami/Lighthouse/blob/main/docs/CONTRIBUTING.md).
+
+---
 
 ## 🚀 Getting Started
 
@@ -76,16 +85,6 @@ Upon receiving update instructions, agents pull the new image, gracefully stop t
 State changes, logs, and update processes are streamed back to the TUI for instant visibility, helping you stay in control at all times.
 
 ➡️ Learn more about the architecture in [ARCHITECTURE.md](https://github.com/MadhavKrishanGoswami/Lighthouse/blob/main/docs/ARCHITECTURE.md).
-
----
-
-## 🤝 Contributing
-
-We welcome contributions from the community! Whether you’re fixing bugs, suggesting improvements, or adding new features, your input helps make Lighthouse better for everyone.
-
-Please fork the repository, submit a pull request, or open an issue labeled “enhancement.”
-
-➡️ See how you can contribute in [CONTRIBUTING.md](https://github.com/MadhavKrishanGoswami/Lighthouse/blob/main/docs/CONTRIBUTING.md).
 
 ---
 
