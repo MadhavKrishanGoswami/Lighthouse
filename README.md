@@ -43,7 +43,7 @@ A modern tech stack ensures performance, scalability, and reliability across dis
 
 Setting up Lighthouse is fast and hassle-free. Follow our comprehensive guide to install, configure, and deploy Lighthouse in both development and production environments.
 
-➡️ See the full instructions in [DEPLOYMENT.md](https://github.com/MadhavKrishanGoswami/Lighthouse/docs/DEPLOYMENT.md).
+➡️ See the full instructions in [DEPLOYMENT.md](https://github.com/MadhavKrishanGoswami/Lighthouse/blob/main/docs/DEPLOYMENT.md).
 
 ---
 
@@ -75,7 +75,7 @@ Upon receiving update instructions, agents pull the new image, gracefully stop t
 **Real-time Monitoring**  
 State changes, logs, and update processes are streamed back to the TUI for instant visibility, helping you stay in control at all times.
 
-➡️ Learn more about the architecture in [ARCHITECTURE.md](https://github.com/MadhavKrishanGoswami/Lighthouse/docs/ARCHITECTURE.md).
+➡️ Learn more about the architecture in [ARCHITECTURE.md](https://github.com/MadhavKrishanGoswami/Lighthouse/blob/main/docs/ARCHITECTURE.md).
 
 ---
 
@@ -85,7 +85,7 @@ We welcome contributions from the community! Whether you’re fixing bugs, sugge
 
 Please fork the repository, submit a pull request, or open an issue labeled “enhancement.”
 
-➡️ See how you can contribute in [CONTRIBUTING.md](https://github.com/MadhavKrishanGoswami/Lighthouse/docs/CONTRIBUTING.md).
+➡️ See how you can contribute in [CONTRIBUTING.md](https://github.com/MadhavKrishanGoswami/Lighthouse/blob/main/docs/CONTRIBUTING.md).
 
 ---
 
