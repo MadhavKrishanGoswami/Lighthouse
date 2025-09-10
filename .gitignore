@@ -24,10 +24,10 @@ go.sum
 *.pprof
 *.trace
 
-# ---- gRPC / Protobuf ----
-*.pb.go
-*.pb.gw.go
-*.swagger.json
+# # ---- gRPC / Protobuf ----
+# *.pb.go
+# *.pb.gw.go
+# *.swagger.json
 
 # If you commit generated code, remove the above ignores.
 # Otherwise regenerate them during build.
