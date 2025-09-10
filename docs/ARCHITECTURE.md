@@ -21,6 +21,8 @@ Lighthouse is a lightweight, self-hosted solution for monitoring and automatical
 The Lighthouse system consists of four primary services, a database for persistence, and external dependencies like the Docker daemon and container registry.
 
 ### Architecture Diagram
+<img width="3840" height="2900" alt="Flowchart Lighthouse Sept 10 2025" src="https://github.com/user-attachments/assets/f7ec1eca-a42d-4546-a853-0de76e6c3815" />
+
 ---
 
 ## 3. Component Deep Dive
@@ -121,6 +123,6 @@ Lighthouse uses gRPC for all internal communication, enabling fast, typed, and s
 The primary flow of Lighthouse is the automated detection and deployment of container updates.
 
 ### Sequence Diagram
+<img width="3173" height="3840" alt="Lighthouse Sequence Diagram Sept 10 2025" src="https://github.com/user-attachments/assets/8f32e4cd-b99e-4336-afd4-7231b056265f" />
 
-```mermaid
 
