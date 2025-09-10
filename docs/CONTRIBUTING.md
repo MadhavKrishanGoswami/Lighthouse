@@ -1,6 +1,6 @@
 # Contributing to Lighthouse
 
-Thank you for considering contributing to **Lighthouse**! It's contributions from passionate developers like you that make open-source projects thrive. Whether you're reporting bugs, suggesting features, improving documentation, or writing code, your efforts are greatly appreciated.
+Thank you for considering contributing to **Lighthouse**! Contributions from passionate developers like you make open-source projects thrive. Whether you're reporting bugs, suggesting features, improving documentation, or writing code, your efforts are greatly appreciated.
 
 This document outlines how you can contribute. Feel free to propose improvements by submitting a pull request.
 
@@ -20,7 +20,7 @@ There are many ways you can help improve Lighthouse:
 - 🚀 Suggest new features or enhancements  
 - 📖 Improve or expand the documentation  
 - ✍️ Write tutorials, blog posts, or guides  
-- 🔧 Submit code improvements or new features
+- 🔧 Submit code improvements or new features  
 
 Every contribution helps, whether big or small!
 
@@ -30,15 +30,15 @@ Every contribution helps, whether big or small!
 
 Before reporting an issue:
 
-1. Check the existing issues on [GitHub Issues](https://github.com/MadhavKrishanGoswami/Lighthouse/issues) to see if it’s already reported.
-2. If it’s not, open a new issue and include:
+1. Check the existing issues on [GitHub Issues](https://github.com/MadhavKrishanGoswami/Lighthouse/issues) to see if it’s already reported.  
+2. If not, open a new issue including:
    - A descriptive title  
    - A clear explanation of the problem  
    - Steps to reproduce the issue  
    - Relevant code samples or configuration files  
-   - Expected vs actual behavior
+   - Expected vs actual behavior  
 
-This will help maintainers understand and resolve the issue quickly.
+This helps maintainers understand and resolve the issue quickly.
 
 ---
 
@@ -48,7 +48,7 @@ Enhancements and new features are always welcome! Please open a new issue and in
 
 - A summary of the enhancement  
 - The problem it solves or why it’s useful  
-- Any implementation ideas or mockups
+- Any implementation ideas or mockups  
 
 This helps us prioritize and plan future improvements.
 
@@ -56,12 +56,12 @@ This helps us prioritize and plan future improvements.
 
 ## 📂 Pull Requests
 
-Pull requests are a fantastic way to contribute!
+Pull requests are a fantastic way to contribute:
 
 1. Fork the repository and create your feature branch from `main`.  
 2. Follow the existing code style and lint your code before submission.  
 3. Write clear and descriptive commit messages.  
-4. Reference any related issues in your PR.
+4. Reference any related issues in your PR.  
 
 Example workflow:
 
@@ -100,9 +100,25 @@ cd Lighthouse
 
 ---
 
-### 3. Generate Code from Definitions
+### 3. Create `local.yaml`
 
-Lighthouse uses gRPC and `sqlc` for code generation. Run the following commands to generate Go code:
+Before running Lighthouse, create a `local.yaml` file in the project root:
+
+```yaml
+env: "dev"
+DataBaseURL: "postgres://dev:dev@localhost:5432/lighthouse?sslmode=disable"
+gRPCServer:
+  orchestratorAddress: "0.0.0.0:50051"
+  registerAddress: "0.0.0.0:50052"
+```
+
+This file configures your development environment, including database and gRPC server addresses.
+
+---
+
+### 4. Generate Code from Definitions
+
+Lighthouse uses gRPC and `sqlc` for code generation. Run the following commands:
 
 ```bash
 # Generate Go code from .proto files
@@ -114,9 +130,9 @@ make sqlc/orchestrator
 
 ---
 
-### 4. Set Up the Database
+### 5. Set Up the Database
 
-You can easily set up PostgreSQL using Docker with this command:
+Easily set up PostgreSQL using Docker:
 
 ```bash
 make make-db
@@ -124,33 +140,33 @@ make make-db
 
 This will start a PostgreSQL container, create the `lighthouse` database, and apply migrations.
 
-Alternatively, manage the database manually using:
+Alternatively, manage the database manually:
 
 ```bash
-make postgres     # Start PostgreSQL container
-make createdb    # Create the database
-make dropdb      # Drop the database
-make migrate-up  # Apply migrations
-make migrate-down # Roll back migrations
+make postgres       # Start PostgreSQL container
+make createdb       # Create the database
+make dropdb         # Drop the database
+make migrate-up     # Apply migrations
+make migrate-down   # Roll back migrations
 ```
 
 ---
 
-### 5. Run Lighthouse Services
+### 6. Run Lighthouse Services
 
-Open multiple terminal windows and run the services as follows:
+Open multiple terminal windows and run the services:
 
 ```bash
-# Terminal 1: Run the Registry Monitor
+# Terminal 1: Registry Monitor
 make run-registry-monitor
 
-# Terminal 2: Run the Orchestrator
+# Terminal 2: Orchestrator
 make run-orchestrator
 
-# Terminal 3: Run the Host Agent
+# Terminal 3: Host Agent
 make run-host-agent
 
-# Terminal 4: Run the TUI
+# Terminal 4: TUI
 make run-tui
 ```
 
@@ -160,8 +176,7 @@ You now have Lighthouse fully running locally and can start contributing!
 
 ## 🙏 Thank You!
 
-Every contribution, whether it’s reporting a bug or writing new features, helps make Lighthouse better. We appreciate your time, effort, and enthusiasm.
+Every contribution, whether reporting a bug or adding features, helps make Lighthouse better. We appreciate your time, effort, and enthusiasm.
 
 Let’s build something amazing together! 🚀📦
-
 
