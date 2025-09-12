@@ -38,6 +38,23 @@ Quick to deploy with minimal configuration. Step-by-step guides help you get Lig
 A modern tech stack ensures performance, scalability, and reliability across distributed environments.
 
 ---
+## ⚙️ How It Works
+
+**Orchestrator**  
+Keeps track of all hosts and containers using a PostgreSQL database, ensuring consistency and coordination across your infrastructure.
+
+**Registry Monitor**  
+Periodically checks container registries for new image versions and triggers updates when changes are detected.
+
+**Host Agents**  
+Upon receiving update instructions, agents pull the new image, gracefully stop the container, and restart it with its original configuration, ensuring minimal downtime.
+
+**Real-time Monitoring**  
+State changes, logs, and update processes are streamed back to the TUI for instant visibility, helping you stay in control at all times.
+
+➡️ Learn more about the architecture in [ARCHITECTURE.md](https://github.com/MadhavKrishanGoswami/Lighthouse/blob/main/docs/ARCHITECTURE.md).
+
+---
 ## 🤝 Contributing
 
 We welcome contributions from the community! Whether you’re fixing bugs, suggesting improvements, or adding new features, your input helps make Lighthouse better for everyone.
@@ -70,23 +87,7 @@ https://github.com/user-attachments/assets/76a66687-d465-419e-b20a-8357b972c83c
 
 ---
 
-## ⚙️ How It Works
 
-**Orchestrator**  
-Keeps track of all hosts and containers using a PostgreSQL database, ensuring consistency and coordination across your infrastructure.
-
-**Registry Monitor**  
-Periodically checks container registries for new image versions and triggers updates when changes are detected.
-
-**Host Agents**  
-Upon receiving update instructions, agents pull the new image, gracefully stop the container, and restart it with its original configuration, ensuring minimal downtime.
-
-**Real-time Monitoring**  
-State changes, logs, and update processes are streamed back to the TUI for instant visibility, helping you stay in control at all times.
-
-➡️ Learn more about the architecture in [ARCHITECTURE.md](https://github.com/MadhavKrishanGoswami/Lighthouse/blob/main/docs/ARCHITECTURE.md).
-
----
 
 ## 📜 License
 
